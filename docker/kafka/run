@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -eo pipefail
+
+ZK_HOST=`ifconfig docker0 | grep 'inet ' | awk ' { print $2 } '`
+docker build -t `whoami`/kafka:0.8.2.1 .
+docker run	\
+	-e ZK_HOST=${ZK_HOST} \
+	-e ADVERTISED_HOST=localhost \
+	-e ADVERTISED_PORT=9092 \
+	-p 127.0.0.1:9092:9092 `whoami`/kafka:0.8.2.1 . start

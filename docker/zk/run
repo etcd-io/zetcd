@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+	echo expecting host port argument
+	exit 1
+fi
+
+docker build -t `whoami`/zookeeper:3.4.8 .
+docker run  -p "$1":2181 -t `whoami`/zookeeper:3.4.8 . start

@@ -1,0 +1,7 @@
+etcd: killall -9 etcd; rm -rf *.etcd && etcd --name infra1 --listen-client-urls http://127.0.0.1:2379 --advertise-client-urls http://127.0.0.1:2379 --listen-peer-urls http://127.0.0.1:2380 --initial-advertise-peer-urls http://127.0.0.1:2380 --initial-cluster-token etcd-cluster-1 --initial-cluster 'infra1=http://127.0.0.1:2380' --initial-cluster-state new --enable-pprof
+
+zk: docker kill `docker ps | egrep "(zookeeper|kafka)" | cut -f1 -d' '`; cd ./docker/zk && ./run 2182
+
+zketcd: killall -9 zetcd; sleep 3s && ./cmd/zetcd/zetcd -endpoint http://localhost:2379 -zkaddr `ifconfig docker0 | grep 'inet ' | awk ' { print $2 } '`:2181 -zkbridge 127.0.0.1:2182 -oracle zk  -logtostderr -v 10 2>zketcd.xchk
+
+kafka: sleep 5s; cd ./docker/kafka && ./run

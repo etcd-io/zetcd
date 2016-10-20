@@ -1,0 +1,3 @@
+zk: docker kill `docker ps | egrep "(zookeeper|kafka)" | cut -f1 -d' '`; cd ./docker/zk && ./run 2181
+
+kafka: sleep 5s; cd ./docker/kafka && ./run

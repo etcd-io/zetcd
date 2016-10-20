@@ -1,0 +1,23 @@
+dist: trusty
+language: go
+go_import_path: github.com/coreos/etcd
+sudo: false
+
+go:
+  - 1.6
+  - tip
+
+env:
+  global:
+   - GO15VENDOREXPERIMENT=1
+  matrix:
+   - TARGET=amd64
+
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - go: tip
+
+script:
+ - go test -v -race
