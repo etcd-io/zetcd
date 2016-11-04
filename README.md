@@ -4,7 +4,7 @@
 
 A ZooKeeper "personality" for etcd. Point a ZooKeeper client at zetcd to dispatch the operations on an etcd cluster.
 
-Protocol encoding and decoding heavily based on [go-zookeeper](http://github.com/samuel/go-zookeeper/").
+Protocol encoding and decoding heavily based on [go-zookeeper](http://github.com/samuel/go-zookeeper/).
 
 ## Usage
 
