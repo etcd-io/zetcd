@@ -63,16 +63,24 @@ func TestCreateSequential(t *testing.T) {
 		if _, err := c.Create("/abc", []byte("x"), 0, acl); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := c.Create("/abc/def", []byte("x"), zk.FlagSequence, acl); err != nil {
+		s, err := c.Create("/abc/def", []byte("x"), zk.FlagSequence, acl)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := c.Create("/abc/def", []byte("x"), zk.FlagSequence, acl); err != nil {
+		if s != "/abc/def0000000000" {
+			t.Fatalf("got %s, expected /abc/def%010d", s, 0)
+		}
+		s, err = c.Create("/abc/def", []byte("x"), zk.FlagSequence, acl)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := c.Get("/abc/def0000000000"); err != nil {
+		if s != "/abc/def0000000001" {
+			t.Fatalf("got %s, expected /abc/def%010d", s, 1)
+		}
+		if _, _, err = c.Get("/abc/def0000000000"); err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := c.Get("/abc/def0000000001"); err != nil {
+		if _, _, err = c.Get("/abc/def0000000001"); err != nil {
 			t.Fatal(err)
 		}
 	})

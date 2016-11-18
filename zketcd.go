@@ -48,7 +48,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		panic("unsupported create flags")
 	}
 
-	var p string // path of new node, passed back from txn
+	var p, respPath string // path of new node, passed back from txn
 	pp := mkPath(path.Dir(op.Path))
 	pkey := "/zk/cver/" + pp
 	applyf := func(s v3sync.STM) (err error) {
@@ -66,11 +66,13 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 			return ErrNoNode
 		}
 
-		p = mkPath(op.Path)
+		p, respPath = mkPath(op.Path), op.Path
 		if op.Flags&FlagSequence != 0 {
 			count := int32(decodeInt64([]byte(s.Get("/zk/count/" + pp))))
 			// force as int32 to get integer overflow as per zk docs
-			p += fmt.Sprintf("%010d", count)
+			cstr := fmt.Sprintf("%010d", count)
+			p += cstr
+			respPath += cstr
 			count++
 			s.Put("/zk/count/"+pp, encodeInt64(int64(count)))
 		} else if s.Rev("/zk/ver/"+p) != 0 {
@@ -118,7 +120,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 	}
 
 	z.s.Wait(zxid, p, EventNodeCreated)
-	crResp := &CreateResponse{op.Path}
+	crResp := &CreateResponse{respPath}
 
 	glog.V(7).Infof("Create(%v) = (zxid=%v, resp=%+v); txnresp.Header: %+v", zxid, xid, *crResp, resp.Header)
 	return mkZKResp(xid, zxid, crResp)
