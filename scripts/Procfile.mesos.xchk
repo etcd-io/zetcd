@@ -1,8 +1,11 @@
 etcd: killall -9 etcd; rm -rf *.etcd && etcd --name infra1 --listen-client-urls http://127.0.0.1:2379 --advertise-client-urls http://127.0.0.1:2379 --listen-peer-urls http://127.0.0.1:2380 --initial-advertise-peer-urls http://127.0.0.1:2380 --initial-cluster-token etcd-cluster-1 --initial-cluster 'infra1=http://127.0.0.1:2380' --initial-cluster-state new --enable-pprof
 
-zketcd: killall -9 zetcd; sleep 3s && ./cmd/zetcd/zetcd -endpoint http://localhost:2379 -zkaddr 127.0.0.1:2181 -zkbridge 127.0.0.1:2182 -oracle zk  -logtostderr -v 10 2>zketcd.xchk
+zketcd: killall -9 zetcd; sleep 3s && ./cmd/zetcd/zetcd -endpoint http://localhost:2379 -zkaddr 127.0.0.1:2181 -zkbridge 127.0.0.1:2182 -oracle zk -logtostderr -v 10 2>zketcd.xchk
 
 zk: docker kill `docker ps | grep zookeeper | cut -f1 -d' '`; cd ./docker/zk && ./run 2182
 
-mesos: docker kill `docker ps | egrep "mesos" | awk ' { print $1 } '`; sleep 10s; docker run -d --net=host -e MESOS_PORT=5050 -e MESOS_ZK=zk://localhost:2181/mesos -e MESOS_QUORUM=1 -e MESOS_REGISTRY=in_memory -e MESOS_LOG_DIR=/var/log/mesos -e MESOS_WORK_DIR=/var/tmp/mesos -v "$(pwd)/log/mesos:/var/log/mesos" -v "$(pwd)/tmp/mesos:/var/tmp/mesos" mesosphere/mesos-master:0.28.0-2.0.16.ubuntu1404
+mesos-master: sleep 10s; docker run -d --net=host -e MESOS_PORT=5050 -e MESOS_ZK=zk://localhost:2181/mesos -e MESOS_QUORUM=1 -e MESOS_REGISTRY=in_memory -e MESOS_LOG_DIR=/var/log/mesos -e MESOS_WORK_DIR=/var/tmp/mesos -v "$(pwd)/log/mesos:/var/log/mesos" -v "$(pwd)/tmp/mesos:/var/tmp/mesos" mesosphere/mesos-master:1.1.01.1.0-2.0.107.ubuntu1404
 
+mesos-slave: sleep 10s; docker run --net=host --pid=host --privileged -e MESOS_MASTER=zk://localhost:2181/mesos -e MESOS_SWITCH_USER=0 -e MESOS_CONTAINERIZERS=docker,mesos -e MESOS_DOCKER_STOP_TIMEOUT=2mins -e MESOS_EXECUTOR_REGISTRATION_TIMEOUT=5mins -e MESOS_LOG_DIR=/var/log/mesos -e MESOS_WORK_DIR=/var/tmp/mesos -v $(pwd)/log/mesos-slave:/var/log/mesos -v $(pwd)/tmp/mesos-slave:/var/tmp/mesos -v /var/run/docker.sock:/var/run/docker.sock -v /sys:/sys -v /usr/bin/docker:/usr/bin/docker  -v /lib64/libdevmapper.so.1.02:/lib/libdevmapper.so.1.02 -v /lib64/libgcrypt.so.20:/lib/libgcrypt.so.20 mesosphere/mesos-slave:1.1.01.1.0-2.0.107.ubuntu1404
+
+cleanup: docker kill `docker ps | egrep "mesos" | awk ' { print $1 } '`
