@@ -20,4 +20,4 @@ matrix:
     - go: tip
 
 script:
- - go test -v -race
+ - rm -rf vendor; go get -t -v ./...; go test -v -race

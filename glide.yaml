@@ -1,0 +1,12 @@
+package: github.com/coreos/zetcd
+import:
+- package: github.com/coreos/etcd
+  version: v3.0.15
+  subpackages:
+  - clientv3
+- package: google.golang.org/grpc
+  version: v1.0.1-GA
+- package: github.com/grpc-ecosystem/grpc-gateway
+  version: v1.1.0
+- package: github.com/samuel/go-zookeeper
+  version: 218e9c81c0dd8b3b18172b2bbfad92cc7d6db55f
