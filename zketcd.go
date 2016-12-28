@@ -61,7 +61,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		if len(op.Acl) == 0 {
 			return ErrInvalidACL
 		}
-		if s.Rev(pkey) == 0 && len(pp) != 2 {
+		if len(pp) != 2 && s.Rev("/zk/ctime/"+pp) == 0 {
 			// no parent
 			return ErrNoNode
 		}
@@ -75,14 +75,15 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 			respPath += cstr
 			count++
 			s.Put("/zk/count/"+pp, encodeInt64(int64(count)))
-		} else if s.Rev("/zk/ver/"+p) != 0 {
+		} else if s.Rev("/zk/ctime/"+p) != 0 {
 			return ErrNodeExists
 		}
 
 		t := encodeTime()
 
-		nextCVer := encodeInt64(decodeInt64([]byte(s.Get(pkey))) + 1)
-		s.Put("/zk/cver/"+pp, nextCVer)
+		// update key's version by blindly writing an empty value
+		s.Put(pkey, "")
+
 		// creating a znode will NOT update its parent mtime
 		// s.Put("/zk/mtime/"+pp, t)
 
@@ -90,7 +91,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		s.Put("/zk/ctime/"+p, t, opts...)
 		s.Put("/zk/mtime/"+p, t, opts...)
 		s.Put("/zk/ver/"+p, encodeInt64(0), opts...)
-		s.Put("/zk/cver/"+p, encodeInt64(0), opts...)
+		s.Put("/zk/cver/"+p, "", opts...)
 		s.Put("/zk/aver/"+p, encodeInt64(0), opts...)
 		s.Put("/zk/acl/"+p, encodeACLs(op.Acl), opts...)
 		s.Put("/zk/count/"+p, encodeInt64(0), opts...)
@@ -174,17 +175,16 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 	p := mkPath(op.Path)
 	pp := mkPath(path.Dir(op.Path))
 	key := "/zk/key/" + p
-	pkey := "/zk/cver/" + pp
 
 	applyf := func(s v3sync.STM) error {
-		if s.Rev(pkey) == 0 && len(pp) != 2 {
+		if len(pp) != 2 && s.Rev("/zk/ctime/"+pp) == 0 {
 			// no parent
 			if PerfectZXidMode {
 				s.Put("/zk/err-node", "1")
 			}
 			return ErrNoNode
 		}
-		if s.Rev("/zk/ver/"+p) == 0 {
+		if s.Rev("/zk/ctime/"+p) == 0 {
 			if PerfectZXidMode {
 				s.Put("/zk/err-node", "1")
 			}
@@ -195,12 +195,7 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 			return ErrBadVersion
 		}
 
-		if decodeInt64([]byte(s.Get("/zk/cver/"+p))) != 0 {
-			panic("how to delete children")
-		}
-
-		nextCVer := encodeInt64(decodeInt64([]byte(s.Get(pkey))) + 1)
-		s.Put("/zk/cver/"+pp, nextCVer)
+		s.Put("/zk/cver/"+pp, "")
 		s.Put("/zk/mtime/"+pp, encodeTime())
 
 		s.Del(key)

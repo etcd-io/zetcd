@@ -51,7 +51,7 @@ func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
 		s.Version = Ver(mtime.Kvs[0].Version - 1)
 	}
 	if len(cver.Kvs) != 0 {
-		s.Cversion = Ver(decodeInt64(cver.Kvs[0].Value))
+		s.Cversion = Ver(cver.Kvs[0].Version - 1)
 	}
 	if len(aver.Kvs) != 0 {
 		s.Aversion = Ver(decodeInt64(aver.Kvs[0].Value))
