@@ -20,14 +20,66 @@ import (
 	"testing"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
+
 	"github.com/samuel/go-zookeeper/zk"
 )
 
 var (
 	acl = zk.WorldACL(zk.PermAll)
 )
+
+func TestDirStat(t *testing.T) {
+	runTest(t, func(t *testing.T, c *zk.Conn) {
+		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+
+		keys1, stat1, cerr1 := c.Children("/abc")
+		if cerr1 != nil {
+			t.Fatal(cerr1)
+		}
+		if len(keys1) != 0 {
+			t.Fatalf("expected 0 keys, got %v", keys1)
+		}
+
+		if _, err := c.Create("/abc/def", []byte("data"), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+
+		keys2, stat2, cerr2 := c.Children("/abc")
+		if cerr2 != nil {
+			t.Fatal(cerr2)
+		}
+		if len(keys2) != 1 {
+			t.Fatalf("expected {\"/abc/def\"} key, got %v", keys2)
+		}
+		if stat2.Mzxid != stat1.Mzxid {
+			t.Fatalf("expected mzxid=%d, got %d", stat1.Mzxid, stat2.Mzxid)
+		}
+		if stat2.Pzxid <= stat1.Pzxid {
+			t.Fatalf("stat2.Pzxid=%d <= stat1.Pzxid=%d", stat2.Pzxid, stat1.Pzxid)
+		}
+
+		if err := c.Delete("/abc/def", -1); err != nil {
+			t.Fatal(err)
+		}
+
+		keys3, stat3, cerr3 := c.Children("/abc")
+		if cerr3 != nil {
+			t.Fatal(cerr3)
+		}
+		if len(keys3) != 0 {
+			t.Fatalf("expected no keys, got %v", keys2)
+		}
+		if stat3.Mzxid != stat1.Mzxid {
+			t.Fatalf("expected mzxid=%d, got %d", stat1.Mzxid, stat3.Mzxid)
+		}
+		if stat3.Pzxid <= stat2.Pzxid {
+			t.Fatalf("stat3.Pzxid=%d <= stat2.Pzxid=%d", stat3.Pzxid, stat2.Pzxid)
+		}
+	})
+}
 
 func TestCreateGet(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
@@ -272,32 +324,51 @@ func TestCreateInvalidACL(t *testing.T) {
 }
 
 func runTest(t *testing.T, f func(*testing.T, *zk.Conn)) {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	ch, cancel := serve(clus.RandClient())
+	zkclus := newZKCluster(t)
+	defer zkclus.Close(t)
 
-	c, _, err := zk.Connect([]string{"127.0.0.1:30000"}, time.Second)
+	c, _, err := zk.Connect([]string{zkclus.zkClientAddr}, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Close()
+
 	f(t, c)
-
-	clus.Terminate(t)
-	cancel()
-	c.Close()
-	<-ch
-
 }
 
-func serve(c *etcd.Client) (<-chan struct{}, func()) {
-	ch := make(chan struct{})
+type zkCluster struct {
+	etcdClus *integration.ClusterV3
+
+	zkClientAddr string
+	cancel       func()
+	donec        <-chan struct{}
+}
+
+func newZKCluster(t *testing.T) *zkCluster {
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	donec := make(chan struct{})
+
 	// TODO use unix socket
 	ln, err := net.Listen("tcp", ":30000")
 	if err != nil {
 		os.Exit(-1)
 	}
+
 	go func() {
+		defer close(donec)
+		c := clus.RandClient()
 		Serve(c.Ctx(), ln, NewAuth(c), NewZK(c))
-		close(ch)
 	}()
-	return ch, func() { ln.Close() }
+	return &zkCluster{
+		etcdClus:     clus,
+		zkClientAddr: "127.0.0.1:30000",
+		cancel:       func() { ln.Close() },
+		donec:        donec,
+	}
+}
+
+func (zkclus *zkCluster) Close(t *testing.T) {
+	zkclus.etcdClus.Terminate(t)
+	zkclus.cancel()
+	<-zkclus.donec
 }

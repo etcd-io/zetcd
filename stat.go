@@ -52,6 +52,7 @@ func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
 	}
 	if len(cver.Kvs) != 0 {
 		s.Cversion = Ver(cver.Kvs[0].Version - 1)
+		s.Pzxid = rev2zxid(cver.Kvs[0].ModRevision)
 	}
 	if len(aver.Kvs) != 0 {
 		s.Aversion = Ver(decodeInt64(aver.Kvs[0].Value))
@@ -61,8 +62,5 @@ func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
 		s.DataLength = int32(len(node.Kvs[0].Value))
 	}
 	s.NumChildren = int32(len(children.Kvs))
-	if s.NumChildren > 0 {
-		s.Pzxid = rev2zxid(children.Kvs[0].ModRevision)
-	}
 	return s
 }
