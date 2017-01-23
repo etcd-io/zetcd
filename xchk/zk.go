@@ -323,7 +323,7 @@ func reportErr(cr, or zetcd.ZKResponse, err error) {
 	case err == errErr || err == errZXid:
 		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v\n", err, cr.Hdr, or.Hdr)
 	case cr.Resp != nil && or.Resp != nil:
-		glog.Warningf("xchk failed (%v)\ncandiate: %+v\noracle: %+v\n", err, cr.Resp, or.Resp)
+		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v\n", err, cr.Resp, or.Resp)
 	case cr.Hdr != nil && or.Hdr != nil:
 		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v\n", err, cr.Hdr, or.Hdr)
 	default:
