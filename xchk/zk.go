@@ -17,6 +17,7 @@ package xchk
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/coreos/zetcd"
@@ -192,6 +193,9 @@ func (xchk *zkXchk) GetChildren(xid zetcd.Xid, op *zetcd.GetChildrenRequest) zet
 		err = errNumChildren
 		return or
 	}
+
+	sort.StringSlice(crr.Children).Sort()
+	sort.StringSlice(orr.Children).Sort()
 	for i := range crr.Children {
 		if crr.Children[i] != orr.Children[i] {
 			err = errChildren
@@ -238,6 +242,9 @@ func (xchk *zkXchk) GetChildren2(xid zetcd.Xid, op *zetcd.GetChildren2Request) z
 		err = errNumChildren
 		return or
 	}
+
+	sort.StringSlice(crr.Children).Sort()
+	sort.StringSlice(orr.Children).Sort()
 	for i := range crr.Children {
 		if crr.Children[i] != orr.Children[i] {
 			err = errChildren
