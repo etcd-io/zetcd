@@ -81,7 +81,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 
 		t := encodeTime()
 
-		// update key's version by blindly writing an empty value
+		// update parent key's version by blindly writing an empty value
 		s.Put(pkey, "")
 
 		// creating a znode will NOT update its parent mtime
@@ -196,7 +196,9 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 		}
 
 		s.Put("/zk/cver/"+pp, "")
-		s.Put("/zk/mtime/"+pp, encodeTime())
+
+		// deleting a znode will NOT update its parent mtime
+		// s.Put("/zk/mtime/"+pp, encodeTime())
 
 		s.Del(key)
 		s.Del("/zk/ctime/" + p)
