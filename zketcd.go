@@ -442,8 +442,12 @@ func (z *zkEtcd) Sync(xid Xid, op *SyncRequest) ZKResponse {
 func (z *zkEtcd) Multi(xid Xid, op *MultiRequest) ZKResponse { panic("multi") }
 
 func (z *zkEtcd) Close(xid Xid, op *CloseRequest) ZKResponse {
-	// XXX this needs to kill the internal session
-	return mkZKResp(xid, 0, &CloseResponse{})
+	resp, _ := z.c.Revoke(z.c.Ctx(), etcd.LeaseID(z.s.Sid()))
+	zxid := ZXid(0)
+	if resp != nil {
+		zxid = ZXid(resp.Header.Revision)
+	}
+	return mkZKResp(xid, zxid, &CloseResponse{})
 }
 
 func (z *zkEtcd) SetAuth(xid Xid, op *SetAuthRequest) ZKResponse { panic("setAuth") }
