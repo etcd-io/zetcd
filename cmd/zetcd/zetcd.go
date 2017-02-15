@@ -15,15 +15,17 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/zetcd"
 	"github.com/coreos/zetcd/xchk"
 	"github.com/coreos/zetcd/zk"
-	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
 )
 
@@ -31,6 +33,32 @@ type personality struct {
 	authf zetcd.AuthFunc
 	zkf   zetcd.ZKFunc
 	ctx   context.Context
+}
+
+func getTlsConfig(etcdCertFile string, etcdKeyFile string, etcdCaFile string) (*tls.Config, error) {
+	tlsInfo := transport.TLSInfo{
+		CertFile:      etcdCertFile,
+		KeyFile:       etcdKeyFile,
+		TrustedCAFile: etcdCaFile,
+	}
+	tlsConfig, err := tlsInfo.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("ERROR: %s", err)
+	}
+	return tlsConfig, nil
+}
+
+func newZKSecureEtcd(etcdAddr string, tlsConfig *tls.Config) (p personality) {
+	// talk to the etcd3 server
+	cfg := etcd.Config{Endpoints: []string{etcdAddr}, TLS: tlsConfig}
+	c, err := etcd.New(cfg)
+	if err != nil {
+		panic(err)
+	}
+	p.authf = zetcd.NewAuth(c)
+	p.zkf = zetcd.NewZK(c)
+	p.ctx = c.Ctx()
+	return p
 }
 
 func newZKEtcd(etcdAddr string) (p personality) {
@@ -73,6 +101,9 @@ func newOracle(etcdAddr, bridgeAddr, oracle string) (p personality) {
 
 func main() {
 	etcdAddr := flag.String("endpoint", "", "etcd3 client address")
+	etcdCertFile := flag.String("certfile", "", "etcd3 cert file")
+	etcdKeyFile := flag.String("keyfile", "", "etcd3 key file")
+	etcdCaFile := flag.String("cafile", "", "etcd3 ca file")
 	zkaddr := flag.String("zkaddr", "", "address for serving zookeeper clients")
 	oracle := flag.String("oracle", "", "oracle zookeeper server address")
 	bridgeAddr := flag.String("zkbridge", "", "bridge zookeeper server address")
@@ -105,7 +136,12 @@ func main() {
 		fmt.Println("expected -endpoint or -zkbridge but not both")
 		os.Exit(1)
 	case len(*etcdAddr) != 0:
-		p = newZKEtcd(*etcdAddr)
+		if len(*etcdCertFile) != 0 && len(*etcdKeyFile) != 0 && len(*etcdCaFile) != 0 {
+			tlsConfig, _ := getTlsConfig(*etcdCertFile, *etcdKeyFile, *etcdCaFile)
+			p = newZKSecureEtcd(*etcdAddr, tlsConfig)
+		} else {
+			p = newZKEtcd(*etcdAddr)
+		}
 	case len(*bridgeAddr) != 0:
 		p = newBridge(*bridgeAddr)
 	default:
