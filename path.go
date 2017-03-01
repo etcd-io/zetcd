@@ -14,12 +14,8 @@
 
 package zetcd
 
-import (
-	"path"
-)
-
 func mkPath(zkPath string) string {
-	p := path.Clean(zkPath)
+	p := zkPath
 	if p[0] != '/' {
 		p = "/" + p
 	}
