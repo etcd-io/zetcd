@@ -471,7 +471,7 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 	ops := make([]etcd.Op, len(op.ExistWatches))
 	for i, ew := range op.ExistWatches {
 		ops[i] = etcd.OpGet(
-			"/zk/ver/ctime/"+mkPath(ew),
+			"/zk/ver/"+mkPath(ew),
 			etcd.WithSerializable(),
 			etcd.WithRev(int64(op.RelativeZxid)))
 	}
