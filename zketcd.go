@@ -47,7 +47,11 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		zkPath = fmt.Sprintf("%s1", zkPath)
 	}
 	if err := validatePath(zkPath); err != nil {
-		return mkZKErr(xid, z.s.ZXid(), errBadArguments)
+		zxid, err := z.incrementAndGetZxid()
+		if err != nil {
+			return mkErr(err)
+		}
+		return mkZKErr(xid, zxid, errBadArguments)
 	}
 
 	opts := []etcd.OpOption{}
@@ -323,7 +327,11 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 
 func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
 	if err := validatePath(op.Path); err != nil {
-		return mkZKErr(xid, z.s.ZXid(), errBadArguments)
+		zxid, err := z.incrementAndGetZxid()
+		if err != nil {
+			return mkErr(err)
+		}
+		return mkZKErr(xid, zxid, errBadArguments)
 	}
 
 	p := mkPath(op.Path)
@@ -401,7 +409,11 @@ func (z *zkEtcd) GetAcl(xid Xid, op *GetAclRequest) ZKResponse {
 
 func (z *zkEtcd) SetAcl(xid Xid, op *SetAclRequest) ZKResponse {
 	if err := validatePath(op.Path); err != nil {
-		return mkZKErr(xid, z.s.ZXid(), errBadArguments)
+		zxid, err := z.incrementAndGetZxid()
+		if err != nil {
+			return mkErr(err)
+		}
+		return mkZKErr(xid, zxid, errBadArguments)
 	}
 	panic("setAcl")
 }
@@ -544,6 +556,23 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 
 func (z *zkEtcd) doSTM(applyf func(s v3sync.STM) error) (*etcd.TxnResponse, error) {
 	return v3sync.NewSTMSerializable(z.c.Ctx(), z.c, applyf)
+}
+
+// incrementAndGetZxid forces a write to the err-node to increment the Zxid
+// to keep the numbers aligned with Zookeeper's semantics. It is gated on the
+// PerfectZxid global at the moment (which is hardcoded true).
+func (z *zkEtcd) incrementAndGetZxid() (ZXid, error) {
+	applyf := func(s v3sync.STM) (err error) {
+		if PerfectZXidMode {
+			s.Put("/zk/err-node", "1")
+		}
+		return nil
+	}
+	resp, err := z.doSTM(applyf)
+	if err != nil {
+		return -1, err
+	}
+	return ZXid(resp.Header.Revision), nil
 }
 
 func encodeACLs(acls []ACL) string {
