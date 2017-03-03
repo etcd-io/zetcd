@@ -351,6 +351,19 @@ func TestCreateInvalidACL(t *testing.T) {
 	})
 }
 
+func TestCreateInvalidPath(t *testing.T) {
+	runTest(t, func(t *testing.T, c *zk.Conn) {
+		werr := zetcd.ErrUnknown
+		resp, err := c.Create("/.", []byte("x"), 0, nil)
+		if err == nil {
+			t.Fatalf("created with invalid path %v, wanted %v", resp, werr)
+		}
+		if err.Error() != werr.Error() {
+			t.Fatalf("got err %v, wanted %v", err, werr)
+		}
+	})
+}
+
 func runTest(t *testing.T, f func(*testing.T, *zk.Conn)) {
 	zkclus := newZKCluster(t)
 	defer zkclus.Close(t)

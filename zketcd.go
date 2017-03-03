@@ -39,6 +39,17 @@ var PerfectZXidMode bool = true
 func NewZKEtcd(c *etcd.Client, s Session) ZK { return &zkEtcd{c, s} }
 
 func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
+	// validate the path is a correct zookeeper path
+	zkPath := op.Path
+	// zookeeper sequence keys must be checked presuming a number is added,
+	// ZK upstream implements it by transforming the proposed path as below.
+	if (op.Flags & FlagSequence) != 0 {
+		zkPath = fmt.Sprintf("%s1", zkPath)
+	}
+	if err := validatePath(zkPath); err != nil {
+		return mkZKErr(xid, z.s.ZXid(), errBadArguments)
+	}
+
 	opts := []etcd.OpOption{}
 	if (op.Flags & FlagEphemeral) != 0 {
 		opts = append(opts, etcd.WithLease(etcd.LeaseID(z.s.Sid())))
@@ -311,6 +322,10 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 }
 
 func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
+	if err := validatePath(op.Path); err != nil {
+		return mkZKErr(xid, z.s.ZXid(), errBadArguments)
+	}
+
 	p := mkPath(op.Path)
 	var statResp etcd.TxnResponse
 	applyf := func(s v3sync.STM) error {
@@ -384,7 +399,12 @@ func (z *zkEtcd) GetAcl(xid Xid, op *GetAclRequest) ZKResponse {
 	return mkZKResp(xid, zxid, resp)
 }
 
-func (z *zkEtcd) SetAcl(xid Xid, op *SetAclRequest) ZKResponse { panic("setAcl") }
+func (z *zkEtcd) SetAcl(xid Xid, op *SetAclRequest) ZKResponse {
+	if err := validatePath(op.Path); err != nil {
+		return mkZKErr(xid, z.s.ZXid(), errBadArguments)
+	}
+	panic("setAcl")
+}
 
 func (z *zkEtcd) GetChildren(xid Xid, op *GetChildrenRequest) ZKResponse {
 	p := mkPath(op.Path)
