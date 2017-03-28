@@ -26,5 +26,5 @@ Simple testing with `zkctl`:
 ```sh
 go install github.com/coreos/zetcd/cmd/zkctl
 zkctl watch / &
-zkctl put /abc "foo"
+zkctl create /abc "foo"
 ```
