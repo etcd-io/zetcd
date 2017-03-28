@@ -1,5 +1,5 @@
-hash: 35e200bc301241562f32ab78931c2a114f9fe6446952049ebf6d0a24ee9b11d8
-updated: 2017-02-28T20:14:07.05445525-08:00
+hash: 829b12fbc96269237d8cb792e2304877e33bdeaeea21ce451d5af507b795d888
+updated: 2017-03-27T16:58:46.007397629-07:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -81,6 +81,10 @@ imports:
   version: 3ac0863d7acf3bc44daf49afef8919af12f704ef
   subpackages:
   - capnslog
+- name: github.com/cpuguy83/go-md2man
+  version: a65d4d2de4d5f7c74868dfa9b202a3c8be315aaa
+  subpackages:
+  - md2man
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/gogo/protobuf
@@ -104,6 +108,8 @@ imports:
   - runtime
   - runtime/internal
   - utilities
+- name: github.com/inconshreveable/mousetrap
+  version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/jonboulle/clockwork
   version: 2eee05ed794112d45db504eb05aa693efd2b8b09
 - name: github.com/karlseguin/ccache
@@ -130,10 +136,18 @@ imports:
   version: a1dba9ce8baed984a2495b658c82687f8157b98f
   subpackages:
   - xfs
+- name: github.com/russross/blackfriday
+  version: 5f33e7b7878355cd2b7e6b8eefc48a5472c69f70
 - name: github.com/samuel/go-zookeeper
   version: 218e9c81c0dd8b3b18172b2bbfad92cc7d6db55f
   subpackages:
   - zk
+- name: github.com/shurcooL/sanitized_anchor_name
+  version: 1dba4b3954bc059efc3991ec364f9f9a35f597d2
+- name: github.com/spf13/cobra
+  version: 1c44ec8d3f1552cac48999f9306da23c4d8a288b
+- name: github.com/spf13/pflag
+  version: 08b1a584251b5b62f458943640fc8ebd4d50aaa5
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
@@ -156,7 +170,7 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 76cc09b634294339fa19ec41b5f2a0b3932cea8b
+  version: afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd
   subpackages:
   - unix
 - name: golang.org/x/time
