@@ -19,6 +19,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/pprof"
 	"os"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -101,6 +103,7 @@ func newOracle(etcdAddr, bridgeAddr, oracle string) (p personality) {
 
 func main() {
 	etcdAddr := flag.String("endpoint", "", "etcd3 client address")
+	pprofAddr := flag.String("pprof-addr", "", "enable pprof with a listen address")
 	etcdCertFile := flag.String("certfile", "", "etcd3 cert file")
 	etcdKeyFile := flag.String("keyfile", "", "etcd3 key file")
 	etcdCaFile := flag.String("cafile", "", "etcd3 ca file")
@@ -114,6 +117,25 @@ func main() {
 	if len(*zkaddr) == 0 {
 		fmt.Println("expected -zkaddr")
 		os.Exit(1)
+	}
+
+	if len(*pprofAddr) != 0 {
+		httpmux := http.NewServeMux()
+		pfx := "/debug/pprof/"
+		httpmux.Handle(pfx, http.HandlerFunc(pprof.Index))
+		httpmux.Handle(pfx + "profile", http.HandlerFunc(pprof.Profile))
+		httpmux.Handle(pfx + "symbol", http.HandlerFunc(pprof.Index))
+		httpmux.Handle(pfx + "cmdline", http.HandlerFunc(pprof.Cmdline))
+		httpmux.Handle(pfx + "trace", http.HandlerFunc(pprof.Trace))
+		for _, s := range []string{"heap", "goroutine", "threadcreate", "block"} {
+			httpmux.Handle(pfx + s, pprof.Handler(s))
+		}
+		pprofListener, err := net.Listen("tcp", *pprofAddr)
+		if err != nil {
+			fmt.Println("failed to listen on pprof address %q (%v)", *pprofAddr, err)
+		}
+		pprofServer := &http.Server{Handler: httpmux}
+		go pprofServer.Serve(pprofListener)
 	}
 
 	// listen on zookeeper server port
