@@ -30,9 +30,14 @@ type Conn interface {
 	Close()
 }
 
+type sendMsg struct {
+	buf    []byte
+	pktlen int
+}
+
 type conn struct {
 	zkc   net.Conn
-	outc  chan []byte
+	outc  chan sendMsg
 	readc chan ZKRequest
 	mu    sync.RWMutex
 
@@ -59,7 +64,7 @@ func (zk *ZKRequest) String() string {
 }
 
 func NewConn(zk net.Conn) Conn {
-	outc := make(chan []byte, 16)
+	outc := make(chan sendMsg, 16)
 	c := &conn{
 		zkc:   zk,
 		outc:  outc,
@@ -88,9 +93,10 @@ func NewConn(zk net.Conn) Conn {
 	go func() {
 		defer close(c.donec)
 		for msg := range outc {
-			if _, err := c.zkc.Write(msg); err != nil {
+			if _, err := c.zkc.Write(msg.buf[:msg.pktlen]); err != nil {
 				return
 			}
+			bufpool.Put(msg.buf)
 		}
 	}()
 
@@ -100,7 +106,7 @@ func NewConn(zk net.Conn) Conn {
 func (c *conn) Read() <-chan ZKRequest { return c.readc }
 
 func (c *conn) Send(xid Xid, zxid ZXid, resp interface{}) error {
-	buf := make([]byte, 2*1024*1024)
+	buf := bufpool.Get().([]byte)
 	hdr := &ResponseHeader{Xid: xid, Zxid: zxid, Err: errOk}
 
 	_, isEv := resp.(*WatcherEvent)
@@ -129,7 +135,7 @@ func (c *conn) Send(xid Xid, zxid ZXid, resp interface{}) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	select {
-	case c.outc <- buf[:4+pktlen]:
+	case c.outc <- sendMsg{buf, 4 + pktlen}:
 		glog.V(9).Infof("conn.Send(xid=%v, zxid=%v, %+v)", xid, zxid, resp)
 	case <-c.donec:
 	}
