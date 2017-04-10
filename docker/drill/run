@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+	echo expecting host port argument
+	exit 1
+fi
+
+docker build -t `whoami`/drill:1.10.0 .
+docker run  --net host --env DRILL_HOST_NAME="$1" -p "$1":8047:8047 -v `pwd`/drill-log:/opt/drill/apache-drill-1.10.0/log/ -t `whoami`/drill:1.10.0 . start
+
