@@ -181,7 +181,6 @@ func (ws *watches) close() {
 // TODO: better algorithm
 func (ws *watches) Wait(rev ZXid, path string, evtype EventType) {
 	ch := []<-chan struct{}{}
-	rev++
 	ws.mu.Lock()
 	for k, w := range ws.path2watch[evtype] {
 		if k != path {
