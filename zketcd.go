@@ -162,9 +162,9 @@ func (z *zkEtcd) GetChildren2(xid Xid, op *GetChildren2Request) ZKResponse {
 		resp.Children = append(resp.Children, zkkey)
 	}
 
-	zxid := ZXid(children.Header.Revision)
-	z.s.Wait(zxid, p, EventNodeChildrenChanged)
+	z.s.Wait(resp.Stat.Pzxid, p, EventNodeChildrenChanged)
 
+	zxid := ZXid(txnresp.Header.Revision)
 	if op.Watch {
 		f := func(newzxid ZXid) {
 			wresp := &WatcherEvent{
@@ -262,7 +262,7 @@ func (z *zkEtcd) Exists(xid Xid, op *ExistsRequest) ZKResponse {
 	exResp := &ExistsResponse{}
 	exResp.Stat = statTxn(txnresp)
 	zxid := ZXid(txnresp.Header.Revision)
-	z.s.Wait(zxid, p, EventNodeCreated)
+	z.s.Wait(exResp.Stat.Czxid, p, EventNodeCreated)
 
 	if op.Watch {
 		ev := EventNodeDeleted
@@ -305,7 +305,7 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 		return mkZKErr(xid, zxid, errNoNode)
 	}
 
-	z.s.Wait(zxid, p, EventNodeDataChanged)
+	z.s.Wait(datResp.Stat.Mzxid, p, EventNodeDataChanged)
 
 	if op.Watch {
 		f := func(newzxid ZXid) {
@@ -378,6 +378,7 @@ func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
 
 	sdresp := &SetDataResponse{}
 	sdresp.Stat = statTxn(&statResp)
+	z.s.Wait(zxid, p, EventNodeDataChanged)
 
 	glog.V(7).Infof("SetData(%v) = (zxid=%v, resp=%+v)", xid, zxid, *sdresp)
 	return mkZKResp(xid, zxid, sdresp)

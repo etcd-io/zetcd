@@ -313,7 +313,7 @@ func xchkResp(cf, of zkfunc) (cresp zetcd.ZKResponse, oresp zetcd.ZKResponse, er
 	case cresp = <-cch:
 	case oresp = <-och:
 	case <-time.After(time.Second):
-		glog.Warningf("took longer than 1s reading second resp %+v %+v", cresp, oresp)
+		glog.Warningf("took longer than 1s reading second resp (%+v,%+v) (%+v,%+v)", cresp.Hdr, cresp.Resp, oresp.Hdr, cresp.Resp)
 		select {
 		case cresp = <-cch:
 		case oresp = <-och:

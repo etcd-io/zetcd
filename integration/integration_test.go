@@ -82,6 +82,41 @@ func TestDirStat(t *testing.T) {
 	})
 }
 
+func TestWatchData(t *testing.T) {
+	runTest(t, func(t *testing.T, c *zk.Conn) {
+		if _, err := c.Create("/abc", []byte("data1"), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+		dat, _, evc, werr := c.GetW("/abc")
+		if werr != nil {
+			t.Fatal(werr)
+		}
+		if string(dat) != "data1" {
+			t.Fatalf("expected data %q, got %q", "data1", string(dat))
+		}
+		if _, err := c.Create("/def", []byte("x"), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+		// wrong rev on watch waits were causing this to stall
+		if _, _, err := c.Get("/abc"); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case ev := <-evc:
+			t.Errorf("expected no event, got %+v", ev)
+		default:
+		}
+		if _, err := c.Set("/abc", []byte("a"), -1); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-evc:
+		case <-time.After(time.Second):
+			t.Errorf("no event after 1s")
+		}
+	})
+}
+
 func TestCreateGet(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
 		if _, _, err := c.Get("/abc"); err == nil {
