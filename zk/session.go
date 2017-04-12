@@ -44,6 +44,11 @@ func (s *session) ZXid() zetcd.ZXid { return 111111 }
 func (s *session) ConnReq() zetcd.ConnectRequest { return s.connReq }
 func (s *session) Backing() interface{}          { return s }
 
+func (s *session) Close() {
+	s.Conn.Close()
+	s.zkc.Close()
+}
+
 func newSession(servers []string, zka zetcd.AuthConn) (*session, error) {
 	defer zka.Close()
 	glog.V(6).Infof("newSession(%s)", servers)
