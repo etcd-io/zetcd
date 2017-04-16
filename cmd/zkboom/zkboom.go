@@ -48,6 +48,8 @@ var (
 
 	zkBoomCreateKeySize int
 	zkBoomCreateValSize int
+
+	zkBoomPrecise bool
 )
 
 func init() {
@@ -56,6 +58,7 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVar(&zkBoomEndpoints, "endpoints", []string{"127.0.0.1:2181"}, "Zookeeper client endpoints")
 	rootCmd.PersistentFlags().IntVar(&zkBoomRate, "rate", 0, "Maximum requests per second (0 is no limit)")
 	rootCmd.PersistentFlags().BoolVar(&zkBoomSample, "samples", false, "Report time-series sample results")
+	rootCmd.PersistentFlags().BoolVar(&zkBoomPrecise, "precise", false, "Print high precision results")
 	rootCmd.PersistentFlags().IntVar(&zkBoomTimeoutSeconds, "timeout", 5, "Timeout for ZooKeeper client in seconds")
 	rootCmd.PersistentFlags().IntVar(&zkBoomTotal, "total", 10000, "Total number of requests")
 
@@ -194,6 +197,9 @@ func doReport(requests <-chan func(*zk.Conn) error) {
 
 func newReport() report.Report {
 	p := "%4.4f"
+	if zkBoomPrecise {
+		p = "%g"
+	}
 	if zkBoomSample {
 		return report.NewReportSample(p)
 	}
