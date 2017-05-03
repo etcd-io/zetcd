@@ -55,6 +55,11 @@ func (sp *SessionPool) Auth(zka AuthConn) (Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	if areq.FourLetterWord == flwRUOK {
+		zka.Write(AuthResponse{FourLetterWord: flwIMOK})
+		return nil, fmt.Errorf(flwRUOK)
+	}
+
 	req := areq.Req
 
 	if req.ProtocolVersion != 0 {

@@ -171,3 +171,10 @@ const (
 	errNothing                 = ErrCode(-117)
 	errSessionMoved            = ErrCode(-118)
 )
+
+// four letter word commands / responses
+
+const (
+	flwRUOK = "ruok"
+	flwIMOK = "imok"
+)

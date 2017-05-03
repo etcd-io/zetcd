@@ -28,13 +28,13 @@ type AuthConn interface {
 }
 
 type AuthResponse struct {
-	Resp *ConnectResponse
-	// TODO: add four letter response
+	Resp           *ConnectResponse
+	FourLetterWord string
 }
 
 type AuthRequest struct {
-	Req *ConnectRequest
-	// TODO: add four letter commands
+	Req            *ConnectRequest
+	FourLetterWord string
 }
 
 type authConn struct {
@@ -45,15 +45,21 @@ func NewAuthConn(c net.Conn) AuthConn { return &authConn{c} }
 
 func (ac *authConn) Read() (*AuthRequest, error) {
 	req := &ConnectRequest{}
-	if err := ReadPacket(ac.c, req); err != nil {
+	flw, err := ReadPacket(ac.c, req)
+	if err != nil {
 		glog.V(6).Infof("error reading connection request (%v)", err)
 		return nil, err
 	}
 	glog.V(6).Infof("auth(%+v)", req)
-	return &AuthRequest{req}, nil
+	return &AuthRequest{req, flw}, nil
 }
 
 func (ac *authConn) Write(ar AuthResponse) (Conn, error) {
+	if ar.Resp == nil {
+		defer ac.c.Close()
+		_, err := ac.c.Write([]byte(ar.FourLetterWord))
+		return nil, err
+	}
 	if err := WritePacket(ac.c, ar.Resp); err != nil {
 		return nil, err
 	}

@@ -115,7 +115,7 @@ func Auth(sp *sessionPool, zka zetcd.AuthConn, cAuth, oAuth zetcd.AuthFunc) (zet
 	// save session info in case of resume
 	sp.put(oresp.Resp.SessionID, cresp.Resp.SessionID, cresp.Resp.Passwd)
 
-	xzkc, xerr := xzka.Write(zetcd.AuthResponse{oresp.Resp})
+	xzkc, xerr := xzka.Write(zetcd.AuthResponse{Resp: oresp.Resp})
 	oerr, cerr := <-oerrc, <-cerrc
 	if xerr != nil || cerr != nil || oerr != nil {
 		return nil, fmt.Errorf("err: xchk: %v. oracle: %v. candidate: %v", oerr, cerr)
