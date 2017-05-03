@@ -6,25 +6,45 @@ A ZooKeeper "personality" for etcd. Point a ZooKeeper client at zetcd to dispatc
 
 Protocol encoding and decoding heavily based on [go-zookeeper](http://github.com/samuel/go-zookeeper/).
 
-## Usage
+## Getting started
 
-Forwarding zookeeper requests on `:2181` to an etcd server listening on `localhost:2379`:
+### Running zetcd
 
-```sh
-go install github.com/coreos/zetcd/cmd/zetcd
-zetcd -zkaddr 0.0.0.0:2181 -endpoint localhost:2379
-```
-
-Cross-checking zookeeper emulation with a native zookeeper server on `locahost:2182`:
+Forward ZooKeeper requests on `:2181` to an etcd server listening on `localhost:2379`:
 
 ```sh
-zetcd -zkaddr 0.0.0.0:2181  -endpoint localhost:2379 -zkbridge localhost:2182  -oracle zk -logtostderr -v 9
+go get github.com/coreos/zetcd/cmd/zetcd
+zetcd --zkaddr 0.0.0.0:2181 --endpoints localhost:2379
 ```
 
 Simple testing with `zkctl`:
 
 ```sh
-go install github.com/coreos/zetcd/cmd/zkctl
+go get github.com/coreos/zetcd/cmd/zkctl
 zkctl watch / &
 zkctl create /abc "foo"
 ```
+
+### Cross-checking
+
+In cross-checking mode, zetcd dynamically tests a fresh isolated "candidate" zetcd cluster against a fresh isolated ZooKeeper "oracle" cluster for divergences. This mode dispatches requests to both zetcd and ZooKeeper, then compares the responses to check for equivalence. If the responses disagree, it is flagged in the logs. Use the flags `-zkbridge` to configure a ZooKeeper endpoint and `-oracle zk` to enable checking.
+
+Cross-check zetcd's ZooKeeper emulation with a native ZooKeeper server endpoint at `localhost:2182` like so:
+
+```sh
+zetcd --zkaddr 0.0.0.0:2181 --endpoints localhost:2379 --debug-zkbridge localhost:2182  --debug-oracle zk --logtostderr -v 9
+```
+
+## Contact
+
+- Mailing list: [etcd-dev](https://groups.google.com/forum/?hl=en#!forum/etcd-dev)
+- IRC: #[etcd](irc://irc.freenode.org:6667/#etcd) on freenode.org
+- Bugs: [issues](https://github.com/coreos/zetcd/issues)
+
+## Contributing
+
+See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+
+### License
+
+zetcd is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
