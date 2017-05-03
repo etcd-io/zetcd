@@ -109,8 +109,8 @@ func main() {
 	etcdKeyFile := flag.String("keyfile", "", "etcd3 key file")
 	etcdCaFile := flag.String("cafile", "", "etcd3 ca file")
 	zkaddr := flag.String("zkaddr", "", "address for serving zookeeper clients")
-	oracle := flag.String("oracle", "", "oracle zookeeper server address")
-	bridgeAddr := flag.String("zkbridge", "", "bridge zookeeper server address")
+	oracle := flag.String("debug-oracle", "", "oracle zookeeper server address")
+	bridgeAddr := flag.String("debug-zkbridge", "", "bridge zookeeper server address")
 
 	flag.Parse()
 	fmt.Println("Running zetcd proxy")
