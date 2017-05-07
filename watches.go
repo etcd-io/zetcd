@@ -113,7 +113,7 @@ func (ws *watches) Watch(rev ZXid, xid Xid, path string, evtype EventType, cb fu
 		fallthrough
 	// use rev+1 watch begins AFTER the requested zxid
 	case EventNodeDeleted:
-		wch = ws.c.Watch(ctx, "/zk/key/"+path, etcd.WithRev(int64(rev+1)))
+		wch = ws.c.Watch(ctx, mkPathKey(path), etcd.WithRev(int64(rev+1)))
 	case EventNodeChildrenChanged:
 		wch = ws.c.Watch(
 			ctx,

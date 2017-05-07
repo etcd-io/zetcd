@@ -143,7 +143,7 @@ func (sp *etcdSessionBackend) resume(sid Sid, pwd []byte) (etcd.LeaseID, error) 
 	return etcd.LeaseID(sid), nil
 }
 
-func lid2key(lid etcd.LeaseID) string { return fmt.Sprintf("/zk/ses/%x", lid) }
+func lid2key(lid etcd.LeaseID) string { return mkPathSession(uint64(lid)) }
 
 type aesSessionBackend struct {
 	c   *etcd.Client

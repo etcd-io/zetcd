@@ -20,12 +20,12 @@ import (
 
 func statGets(p string) []etcd.Op {
 	return []etcd.Op{
-		etcd.OpGet("/zk/ctime/"+p, etcd.WithSerializable()),
-		etcd.OpGet("/zk/mtime/"+p, etcd.WithSerializable(),
+		etcd.OpGet(mkPathCTime(p), etcd.WithSerializable()),
+		etcd.OpGet(mkPathMTime(p), etcd.WithSerializable(),
 			etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend)),
-		etcd.OpGet("/zk/key/"+p, etcd.WithSerializable()),
-		etcd.OpGet("/zk/cver/"+p, etcd.WithSerializable()),
-		etcd.OpGet("/zk/aver/"+p, etcd.WithSerializable()),
+		etcd.OpGet(mkPathKey(p), etcd.WithSerializable()),
+		etcd.OpGet(mkPathCVer(p), etcd.WithSerializable()),
+		etcd.OpGet(mkPathACL(p), etcd.WithSerializable(), etcd.WithKeysOnly()),
 		// to compute num children
 		etcd.OpGet(getListPfx(p), etcd.WithSerializable(), etcd.WithPrefix()),
 	}
@@ -55,7 +55,7 @@ func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
 		s.Pzxid = rev2zxid(cver.Kvs[0].ModRevision)
 	}
 	if len(aver.Kvs) != 0 {
-		s.Aversion = Ver(decodeInt64(aver.Kvs[0].Value))
+		s.Aversion = Ver(aver.Kvs[0].Version - 1)
 	}
 	if len(node.Kvs) != 0 {
 		s.EphemeralOwner = Sid(node.Kvs[0].Lease)

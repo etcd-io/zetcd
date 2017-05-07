@@ -65,32 +65,32 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 
 	var p, respPath string // path of new node, passed back from txn
 	pp := mkPath(path.Dir(op.Path))
-	pkey := "/zk/cver/" + pp
+	pkey := mkPathCVer(pp)
 	applyf := func(s v3sync.STM) (err error) {
 		defer func() {
 			if PerfectZXidMode && err != nil {
-				s.Put("/zk/err-node", "1")
+				s.Put(mkPathErrNode(), "1")
 			}
 		}()
 
 		if len(op.Acl) == 0 {
 			return ErrInvalidACL
 		}
-		if len(pp) != 2 && s.Rev("/zk/ctime/"+pp) == 0 {
+		if len(pp) != 2 && s.Rev(mkPathCTime(pp)) == 0 {
 			// no parent
 			return ErrNoNode
 		}
 
 		p, respPath = mkPath(op.Path), op.Path
 		if op.Flags&FlagSequence != 0 {
-			count := int32(decodeInt64([]byte(s.Get("/zk/count/" + pp))))
+			count := int32(decodeInt64([]byte(s.Get(mkPathCount(pp)))))
 			// force as int32 to get integer overflow as per zk docs
 			cstr := fmt.Sprintf("%010d", count)
 			p += cstr
 			respPath += cstr
 			count++
-			s.Put("/zk/count/"+pp, encodeInt64(int64(count)))
-		} else if s.Rev("/zk/ctime/"+p) != 0 {
+			s.Put(mkPathCount(pp), encodeInt64(int64(count)))
+		} else if s.Rev(mkPathCTime(p)) != 0 {
 			return ErrNodeExists
 		}
 
@@ -102,14 +102,13 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		// creating a znode will NOT update its parent mtime
 		// s.Put("/zk/mtime/"+pp, t)
 
-		s.Put("/zk/key/"+p, string(op.Data), opts...)
-		s.Put("/zk/ctime/"+p, t, opts...)
-		s.Put("/zk/mtime/"+p, t, opts...)
-		s.Put("/zk/ver/"+p, encodeInt64(0), opts...)
-		s.Put("/zk/cver/"+p, "", opts...)
-		s.Put("/zk/aver/"+p, encodeInt64(0), opts...)
-		s.Put("/zk/acl/"+p, encodeACLs(op.Acl), opts...)
-		s.Put("/zk/count/"+p, encodeInt64(0), opts...)
+		s.Put(mkPathKey(p), string(op.Data), opts...)
+		s.Put(mkPathCTime(p), t, opts...)
+		s.Put(mkPathMTime(p), t, opts...)
+		s.Put(mkPathVer(p), encodeInt64(0), opts...)
+		s.Put(mkPathCVer(p), "", opts...)
+		s.Put(mkPathACL(p), encodeACLs(op.Acl), opts...)
+		s.Put(mkPathCount(p), encodeInt64(0), opts...)
 
 		return nil
 	}
@@ -189,40 +188,39 @@ func (z *zkEtcd) Ping(xid Xid, op *PingRequest) ZKResponse {
 func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 	p := mkPath(op.Path)
 	pp := mkPath(path.Dir(op.Path))
-	key := "/zk/key/" + p
+	key := mkPathKey(p)
 
 	applyf := func(s v3sync.STM) error {
-		if len(pp) != 2 && s.Rev("/zk/ctime/"+pp) == 0 {
+		if len(pp) != 2 && s.Rev(mkPathCTime(pp)) == 0 {
 			// no parent
 			if PerfectZXidMode {
-				s.Put("/zk/err-node", "1")
+				s.Put(mkPathErrNode(), "1")
 			}
 			return ErrNoNode
 		}
-		if s.Rev("/zk/ctime/"+p) == 0 {
+		if s.Rev(mkPathCTime(p)) == 0 {
 			if PerfectZXidMode {
-				s.Put("/zk/err-node", "1")
+				s.Put(mkPathErrNode(), "1")
 			}
 			return ErrNoNode
 		}
-		ver := Ver(decodeInt64([]byte(s.Get("/zk/ver/" + p))))
+		ver := Ver(decodeInt64([]byte(s.Get(mkPathVer(p)))))
 		if op.Version != Ver(-1) && op.Version != ver {
 			return ErrBadVersion
 		}
 
-		s.Put("/zk/cver/"+pp, "")
+		s.Put(mkPathCVer(pp), "")
 
 		// deleting a znode will NOT update its parent mtime
 		// s.Put("/zk/mtime/"+pp, encodeTime())
 
 		s.Del(key)
-		s.Del("/zk/ctime/" + p)
-		s.Del("/zk/mtime/" + p)
-		s.Del("/zk/ver/" + p)
-		s.Del("/zk/cver/" + p)
-		s.Del("/zk/aver/" + p)
-		s.Del("/zk/acl/" + p)
-		s.Del("/zk/count/" + p)
+		s.Del(mkPathCTime(p))
+		s.Del(mkPathMTime(p))
+		s.Del(mkPathVer(p))
+		s.Del(mkPathCVer(p))
+		s.Del(mkPathACL(p))
+		s.Del(mkPathCount(p))
 
 		return nil
 	}
@@ -337,20 +335,20 @@ func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
 	p := mkPath(op.Path)
 	var statResp etcd.TxnResponse
 	applyf := func(s v3sync.STM) error {
-		if s.Rev("/zk/ver/"+p) == 0 {
+		if s.Rev(mkPathVer(p)) == 0 {
 			if PerfectZXidMode {
-				s.Put("/zk/err-node", "2")
+				s.Put(mkPathErrNode(), "2")
 			}
 			return ErrNoNode
 		}
-		currentVersion := Ver(decodeInt64([]byte(s.Get("/zk/ver/" + p))))
+		currentVersion := Ver(decodeInt64([]byte(s.Get(mkPathVer(p)))))
 		if op.Version != Ver(-1) && op.Version != currentVersion {
 			return ErrBadVersion
 
 		}
-		s.Put("/zk/key/"+p, string(op.Data))
-		s.Put("/zk/ver/"+p, string(encodeInt64(int64(currentVersion+1))))
-		s.Put("/zk/mtime/"+p, encodeTime())
+		s.Put(mkPathKey(p), string(op.Data))
+		s.Put(mkPathVer(p), string(encodeInt64(int64(currentVersion+1))))
+		s.Put(mkPathMTime(p), encodeTime())
 
 		resp, err := z.c.Txn(z.c.Ctx()).Then(statGets(p)...).Commit()
 		if err != nil {
@@ -388,7 +386,7 @@ func (z *zkEtcd) GetAcl(xid Xid, op *GetAclRequest) ZKResponse {
 	resp := &GetAclResponse{}
 	p := mkPath(op.Path)
 
-	gets := []etcd.Op{etcd.OpGet("/zk/acl/" + p)}
+	gets := []etcd.Op{etcd.OpGet(mkPathACL(p))}
 	gets = append(gets, statGets(p)...)
 	txnresp, err := z.c.Txn(z.c.Ctx()).Then(gets...).Commit()
 	if err != nil {
@@ -458,7 +456,7 @@ func (z *zkEtcd) GetChildren(xid Xid, op *GetChildrenRequest) ZKResponse {
 
 func (z *zkEtcd) Sync(xid Xid, op *SyncRequest) ZKResponse {
 	// linearized read
-	resp, err := z.c.Get(z.c.Ctx(), "/zk/ver/"+mkPath(op.Path))
+	resp, err := z.c.Get(z.c.Ctx(), mkPathVer(mkPath(op.Path)))
 	if err != nil {
 		return mkErr(err)
 	}
@@ -504,7 +502,7 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 	ops := make([]etcd.Op, len(op.ExistWatches))
 	for i, ew := range op.ExistWatches {
 		ops[i] = etcd.OpGet(
-			"/zk/ver/"+mkPath(ew),
+			mkPathVer(mkPath(ew)),
 			etcd.WithSerializable(),
 			etcd.WithRev(int64(op.RelativeZxid)))
 	}
@@ -565,7 +563,7 @@ func (z *zkEtcd) doSTM(applyf func(s v3sync.STM) error) (*etcd.TxnResponse, erro
 func (z *zkEtcd) incrementAndGetZxid() (ZXid, error) {
 	applyf := func(s v3sync.STM) (err error) {
 		if PerfectZXidMode {
-			s.Put("/zk/err-node", "1")
+			s.Put(mkPathErrNode(), "1")
 		}
 		return nil
 	}
