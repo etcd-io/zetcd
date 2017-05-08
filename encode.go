@@ -232,19 +232,22 @@ func encodePacketValue(buf []byte, v reflect.Value) (int, error) {
 	return n, nil
 }
 
-func ReadPacket(zk net.Conn, r interface{}) error {
+func ReadPacket(zk net.Conn, r interface{}) (string, error) {
 	buf := make([]byte, 256)
 	_, err := io.ReadFull(zk, buf[:4])
+	if string(buf[:4]) == flwRUOK {
+		return flwRUOK, nil
+	}
 	blen := int(binary.BigEndian.Uint32(buf[:4]))
 	if cap(buf) < blen {
 		buf = make([]byte, blen)
 	}
 	_, err = io.ReadFull(zk, buf[:blen])
 	if err != nil {
-		return err
+		return "", err
 	}
 	_, err = decodePacket(buf[:blen], r)
-	return err
+	return "", err
 }
 
 func WritePacket(zk net.Conn, r interface{}) error {
@@ -405,5 +408,3 @@ func readRespOp(zk net.Conn, xid2resp func(Xid) interface{}) (*ResponseHeader, i
 	_, oerr := decodePacket(buf[n:blen], resp)
 	return hdr, resp, oerr
 }
-
-

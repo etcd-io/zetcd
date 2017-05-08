@@ -72,14 +72,15 @@ func newSession(servers []string, zka zetcd.AuthConn) (*session, error) {
 		zkconn.Close()
 		return nil, err
 	}
-	// pipe back connectino result
+	// pipe back connection result
 	resp := zetcd.ConnectResponse{}
-	if err := zetcd.ReadPacket(zkconn, &resp); err != nil {
+	flw, err := zetcd.ReadPacket(zkconn, &resp)
+	if err != nil {
 		glog.V(6).Infof("failed to read connection response (%v)", err)
 		return nil, err
 	}
 	// pass response back to proxy
-	zkc, aerr := zka.Write(zetcd.AuthResponse{Resp: &resp})
+	zkc, aerr := zka.Write(zetcd.AuthResponse{Resp: &resp, FourLetterWord: flw})
 	if zkc == nil || aerr != nil {
 		zkconn.Close()
 		return nil, aerr
