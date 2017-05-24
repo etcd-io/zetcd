@@ -226,6 +226,20 @@ func TestGetDataW(t *testing.T) {
 	})
 }
 
+func TestRejectDeleteWithChildren(t *testing.T) {
+	runTest(t, func(t *testing.T, c *zk.Conn) {
+		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.Create("/abc/def", []byte(""), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Delete("/abc", -1); err != zk.ErrNotEmpty {
+			t.Fatalf("expected error %q, got %q", zk.ErrNotEmpty, err)
+		}
+	})
+}
+
 func TestSync(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
 		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
