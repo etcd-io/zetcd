@@ -90,9 +90,12 @@ func main() {
 
 func lsCommandFunc(cmd *cobra.Command, args []string) {
 	dir := "/"
-	if len(args) > 1 {
+	if len(args) == 1 {
 		dir = args[0]
+	} else if len(args) > 1 {
+		exitOn(fmt.Errorf("ls expected one path argument, got more %q", args))
 	}
+
 	fmt.Println("ls dir", dir)
 	children, stat, err := mustZKClient().Children(dir)
 	if err != nil {
@@ -108,9 +111,12 @@ func lsCommandFunc(cmd *cobra.Command, args []string) {
 
 func watchCommandFunc(cmd *cobra.Command, args []string) {
 	dir := "/"
-	if len(args) > 1 {
+	if len(args) == 1 {
 		dir = args[0]
+	} else if len(args) > 1 {
+		exitOn(fmt.Errorf("watch expected one path argument, got more %q", args))
 	}
+
 	fmt.Println("watch dir", dir)
 	children, stat, ch, err := mustZKClient().ChildrenW(dir)
 	if err != nil {
