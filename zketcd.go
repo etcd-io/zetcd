@@ -68,8 +68,8 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 	pkey := mkPathCVer(pp)
 	applyf := func(s v3sync.STM) (err error) {
 		defer func() {
-			if PerfectZXidMode && err != nil {
-				s.Put(mkPathErrNode(), "1")
+			if err != nil {
+				updateErrRev(s)
 			}
 		}()
 
@@ -193,15 +193,11 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 	applyf := func(s v3sync.STM) error {
 		if pp != rootPath && s.Rev(mkPathCTime(pp)) == 0 {
 			// no parent
-			if PerfectZXidMode {
-				s.Put(mkPathErrNode(), "1")
-			}
+			updateErrRev(s)
 			return ErrNoNode
 		}
 		if s.Rev(mkPathCTime(p)) == 0 {
-			if PerfectZXidMode {
-				s.Put(mkPathErrNode(), "1")
-			}
+			updateErrRev(s)
 			return ErrNoNode
 		}
 		if op.Version != Ver(-1) {
@@ -209,6 +205,22 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 			if op.Version != ver {
 				return ErrBadVersion
 			}
+		}
+
+		crev := s.Rev(mkPathCVer(p))
+		gresp, gerr := z.c.Get(z.c.Ctx(), getListPfx(p),
+			// TODO: monotonic revisions from serializable
+			// etcd.WithSerializable(),
+			etcd.WithPrefix(),
+			etcd.WithCountOnly(),
+			etcd.WithRev(crev),
+			etcd.WithLimit(1))
+		if gerr != nil {
+			return gerr
+		}
+		if gresp.Count > 0 {
+			updateErrRev(s)
+			return ErrNotEmpty
 		}
 
 		s.Put(mkPathCVer(pp), "")
@@ -240,6 +252,8 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 		return mkZKErr(xid, zxid, errNoNode)
 	case ErrBadVersion:
 		return mkZKErr(xid, zxid, errBadVersion)
+	case ErrNotEmpty:
+		return mkZKErr(xid, zxid, errNotEmpty)
 	default:
 		return mkZKErr(xid, zxid, errAPIError)
 	}
@@ -338,9 +352,7 @@ func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
 	var statResp etcd.TxnResponse
 	applyf := func(s v3sync.STM) error {
 		if s.Rev(mkPathVer(p)) == 0 {
-			if PerfectZXidMode {
-				s.Put(mkPathErrNode(), "2")
-			}
+			updateErrRev(s)
 			return ErrNoNode
 		}
 		currentVersion := Ver(decodeInt64([]byte(s.Get(mkPathVer(p)))))
@@ -564,9 +576,7 @@ func (z *zkEtcd) doSTM(applyf func(s v3sync.STM) error) (*etcd.TxnResponse, erro
 // PerfectZxid global at the moment (which is hardcoded true).
 func (z *zkEtcd) incrementAndGetZxid() (ZXid, error) {
 	applyf := func(s v3sync.STM) (err error) {
-		if PerfectZXidMode {
-			s.Put(mkPathErrNode(), "1")
-		}
+		updateErrRev(s)
 		return nil
 	}
 	resp, err := z.doSTM(applyf)
@@ -622,5 +632,12 @@ func wrapErr(err *error, f func(s v3sync.STM) error) func(s v3sync.STM) error {
 			*err = ferr
 		}
 		return nil
+	}
+}
+
+// updateErrRev puts to a dummy key to increase the zxid for an error.
+func updateErrRev(s v3sync.STM) {
+	if PerfectZXidMode {
+		s.Put(mkPathErrNode(), "1")
 	}
 }
