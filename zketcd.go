@@ -204,9 +204,11 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 			}
 			return ErrNoNode
 		}
-		ver := Ver(decodeInt64([]byte(s.Get(mkPathVer(p)))))
-		if op.Version != Ver(-1) && op.Version != ver {
-			return ErrBadVersion
+		if op.Version != Ver(-1) {
+			ver := Ver(decodeInt64([]byte(s.Get(mkPathVer(p)))))
+			if op.Version != ver {
+				return ErrBadVersion
+			}
 		}
 
 		s.Put(mkPathCVer(pp), "")
