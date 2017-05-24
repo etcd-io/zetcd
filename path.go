@@ -26,6 +26,8 @@ var (
 	errPathEmptyNodeName = errors.New("empty node name specified")
 	errPathIsRelative    = errors.New("relative paths not allowed")
 	errPathBadCharacter  = errors.New("invalid character")
+
+	rootPath = mkPath("/")
 )
 
 // validatePath checks the supplied path against the ZK rules for valid node
@@ -78,7 +80,7 @@ func validatePath(zkPath string) error {
 }
 
 func getListPfx(p string) string {
-	if len(p) != 2 {
+	if p != rootPath {
 		// /abc => 1 => listing dir needs search on p[0] = 2
 		return mkPathMTime(incPath(p) + "/")
 	}

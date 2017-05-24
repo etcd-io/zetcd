@@ -76,7 +76,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		if len(op.Acl) == 0 {
 			return ErrInvalidACL
 		}
-		if len(pp) != 2 && s.Rev(mkPathCTime(pp)) == 0 {
+		if pp != rootPath && s.Rev(mkPathCTime(pp)) == 0 {
 			// no parent
 			return ErrNoNode
 		}
@@ -151,7 +151,7 @@ func (z *zkEtcd) GetChildren2(xid Xid, op *GetChildren2Request) ZKResponse {
 	}
 
 	resp.Stat = statTxn(txnresp)
-	if len(p) != 2 && resp.Stat.Ctime == 0 {
+	if op.Path != "/" && resp.Stat.Ctime == 0 {
 		return mkZKErr(xid, ZXid(txnresp.Header.Revision), errNoNode)
 	}
 
@@ -191,7 +191,7 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 	key := mkPathKey(p)
 
 	applyf := func(s v3sync.STM) error {
-		if len(pp) != 2 && s.Rev(mkPathCTime(pp)) == 0 {
+		if pp != rootPath && s.Rev(mkPathCTime(pp)) == 0 {
 			// no parent
 			if PerfectZXidMode {
 				s.Put(mkPathErrNode(), "1")
@@ -425,7 +425,7 @@ func (z *zkEtcd) GetChildren(xid Xid, op *GetChildrenRequest) ZKResponse {
 	}
 
 	s := statTxn(txnresp)
-	if len(p) != 2 && s.Ctime == 0 {
+	if op.Path != "/" && s.Ctime == 0 {
 		return mkZKErr(xid, ZXid(txnresp.Header.Revision), errNoNode)
 	}
 
