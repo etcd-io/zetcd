@@ -433,6 +433,143 @@ func TestRUOK(t *testing.T) {
 	}
 }
 
+func TestMultiOp(t *testing.T) { runTest(t, testMultiOp) }
+
+func testMultiOp(t *testing.T, c *zk.Conn) {
+	// test create+create => same zxid
+	ops := []interface{}{
+		&zk.CreateRequest{Path: "/abc", Data: []byte("foo"), Acl: acl},
+		&zk.CreateRequest{Path: "/def", Data: []byte("bar"), Acl: acl},
+	}
+	resp, err := c.Multi(ops...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, s1, err1 := c.Get("/abc")
+	if err1 != nil {
+		t.Fatal(err1)
+	}
+	_, s2, err2 := c.Get("/def")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
+		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+	}
+	// test 2 create, 1 delete
+	ops = []interface{}{
+		&zk.CreateRequest{Path: "/foo", Data: []byte("foo"), Acl: acl},
+		&zk.DeleteRequest{Path: "/def"},
+		&zk.CreateRequest{Path: "/bar", Data: []byte("foo"), Acl: acl},
+	}
+	resp, err = c.Multi(ops...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, s1, err1 = c.Get("/foo")
+	if err1 != nil {
+		t.Fatal(err1)
+	}
+	if _, _, err := c.Get("/def"); err == nil || err.Error() != zetcd.ErrNoNode.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrNoNode, err)
+	}
+	_, s2, err2 = c.Get("/bar")
+	if err1 != nil {
+		t.Fatal(err1)
+	}
+	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
+		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+	}
+	// test create on key that already exists
+	ops = []interface{}{
+		&zk.CreateRequest{Path: "/foo", Data: []byte("foo"), Acl: acl},
+	}
+	resp, err = c.Multi(ops...)
+	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
+	}
+	// test create+delete on same key == no key
+	ops = []interface{}{
+		&zk.CreateRequest{Path: "/create-del", Data: []byte("foo"), Acl: acl},
+		&zk.DeleteRequest{Path: "/create-del"},
+		// update foo to get version=1
+		&zk.SetDataRequest{Path: "/foo", Data: []byte("bar")},
+	}
+	resp, err = c.Multi(ops...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp[0].String != "/create-del" || resp[1].String != "" {
+		t.Fatal("expected /create-del, ''; got %+v", resp)
+	}
+	_, _, err = c.Get("/create-del")
+	if err == nil || err.Error() != zetcd.ErrNoNode.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrNoNode, err)
+	}
+	// test version check mismatch
+	ops = []interface{}{
+		&zk.CreateRequest{Path: "/test1", Data: []byte("foo"), Acl: acl},
+		&zk.CheckVersionRequest{Path: "/foo", Version: 2},
+	}
+	resp, err = c.Multi(ops...)
+	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
+	}
+	if _, s1, err = c.Get("/test1"); err == nil || err.Error() != zetcd.ErrNoNode.Error() {
+		t.Fatalf("expected %v, got (%v,%v)", zetcd.ErrNoNode, s1, err)
+	}
+	// test version check match
+	ops = []interface{}{
+		&zk.CheckVersionRequest{Path: "/foo", Version: 1},
+		&zk.CreateRequest{Path: "/test1", Data: []byte("foo"), Acl: acl},
+		&zk.CreateRequest{Path: "/test2", Data: []byte("foo"), Acl: acl},
+	}
+	resp, err = c.Multi(ops...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, s1, err1 = c.Get("/test1"); err1 != nil {
+		t.Fatal(err1)
+	}
+	if _, s2, err2 = c.Get("/test2"); err2 != nil {
+		t.Fatal(err2)
+	}
+	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
+		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+	}
+	// test version missing key
+	ops = []interface{}{
+		&zk.CheckVersionRequest{Path: "/missing-key", Version: 0},
+	}
+	resp, err = c.Multi(ops...)
+	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
+	}
+	// test empty operation list
+	resp, err = c.Multi()
+	if err != nil || len(resp) != 0 {
+		t.Fatalf("expected empty resp, got (%+v,%v)", resp, err)
+	}
+	// test setdata if path exists
+	ops = []interface{}{
+		&zk.SetDataRequest{Path: "/foo", Data: []byte("foo"), Version: -1},
+		&zk.CreateRequest{Path: "/set-txn", Data: []byte("foo"), Acl: acl},
+	}
+	resp, err = c.Multi(ops...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, s1, err1 = c.Get("/foo"); err1 != nil {
+		t.Fatal(err1)
+	}
+	if _, s2, err2 = c.Get("/set-txn"); err2 != nil {
+		t.Fatal(err2)
+	}
+	if s1.Mzxid != s2.Mzxid {
+		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+	}
+}
+
 func runTest(t *testing.T, f func(*testing.T, *zk.Conn)) {
 	zkclus := newZKCluster(t)
 	defer zkclus.Close(t)
