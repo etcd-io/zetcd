@@ -60,6 +60,8 @@ func DispatchZK(zk ZK, xid Xid, op interface{}) ZKResponse {
 		return zk.Close(xid, op)
 	case *SetWatchesRequest:
 		return zk.SetWatches(xid, op)
+	case *MultiRequest:
+		return zk.Multi(xid, op)
 	default:
 		fmt.Printf("unexpected type %d %T\n", xid, op)
 	}
