@@ -16,13 +16,11 @@ package integration
 
 import (
 	"net"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/coreos/zetcd"
 
-	"github.com/coreos/etcd/integration"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
@@ -581,41 +579,4 @@ func runTest(t *testing.T, f func(*testing.T, *zk.Conn)) {
 	defer c.Close()
 
 	f(t, c)
-}
-
-type zkCluster struct {
-	etcdClus *integration.ClusterV3
-
-	zkClientAddr string
-	cancel       func()
-	donec        <-chan struct{}
-}
-
-func newZKCluster(t *testing.T) *zkCluster {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	donec := make(chan struct{})
-
-	// TODO use unix socket
-	ln, err := net.Listen("tcp", ":30000")
-	if err != nil {
-		os.Exit(-1)
-	}
-
-	go func() {
-		defer close(donec)
-		c := clus.RandClient()
-		zetcd.Serve(c.Ctx(), ln, zetcd.NewAuth(c), zetcd.NewZK(c))
-	}()
-	return &zkCluster{
-		etcdClus:     clus,
-		zkClientAddr: "127.0.0.1:30000",
-		cancel:       func() { ln.Close() },
-		donec:        donec,
-	}
-}
-
-func (zkclus *zkCluster) Close(t *testing.T) {
-	zkclus.etcdClus.Terminate(t)
-	zkclus.cancel()
-	<-zkclus.donec
 }
