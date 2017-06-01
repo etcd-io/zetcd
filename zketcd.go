@@ -33,12 +33,29 @@ type zkEtcd struct {
 	s Session
 }
 
+type opBundle struct {
+	apply func(v3sync.STM) error
+	reply func(Xid, ZXid) ZKResponse
+}
+
 // PerfectZXid is enabled to insert err writes to match zookeeper's zxids
 var PerfectZXidMode bool = true
 
 func NewZKEtcd(c *etcd.Client, s Session) ZK { return &zkEtcd{c, s} }
 
 func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
+	b := z.mkCreateTxnOp(op)
+	resp, zkErr := z.doWrappedSTM(xid, b.apply)
+	if resp == nil {
+		return zkErr
+	}
+	glog.V(7).Infof("Create(%v) = (zxid=%v); txnresp: %+v", xid, resp.Header.Revision, *resp)
+	return b.reply(xid, ZXid(resp.Header.Revision))
+}
+
+func (z *zkEtcd) mkCreateTxnOp(op *CreateRequest) opBundle {
+	var p, respPath string // path of new node, passed back from txn
+
 	// validate the path is a correct zookeeper path
 	zkPath := op.Path
 	// zookeeper sequence keys must be checked presuming a number is added,
@@ -47,11 +64,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		zkPath = fmt.Sprintf("%s1", zkPath)
 	}
 	if err := validatePath(zkPath); err != nil {
-		zxid, err := z.incrementAndGetZxid()
-		if err != nil {
-			return mkErr(err)
-		}
-		return mkZKErr(xid, zxid, errBadArguments)
+		return mkBadArgumentsTxnOp()
 	}
 
 	opts := []etcd.OpOption{}
@@ -63,10 +76,9 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		panic("unsupported create flags")
 	}
 
-	var p, respPath string // path of new node, passed back from txn
 	pp := mkPath(path.Dir(op.Path))
 	pkey := mkPathCVer(pp)
-	applyf := func(s v3sync.STM) (err error) {
+	apply := func(s v3sync.STM) (err error) {
 		defer func() {
 			if err != nil {
 				updateErrRev(s)
@@ -76,7 +88,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		if len(op.Acl) == 0 {
 			return ErrInvalidACL
 		}
-		if pp != rootPath && s.Rev(mkPathCTime(pp)) == 0 {
+		if pp != rootPath && len(s.Get(mkPathCTime(pp))) == 0 {
 			// no parent
 			return ErrNoNode
 		}
@@ -90,7 +102,7 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 			respPath += cstr
 			count++
 			s.Put(mkPathCount(pp), encodeInt64(int64(count)))
-		} else if s.Rev(mkPathCTime(p)) != 0 {
+		} else if len(s.Get(mkPathCTime(p))) != 0 {
 			return ErrNodeExists
 		}
 
@@ -109,36 +121,13 @@ func (z *zkEtcd) Create(xid Xid, op *CreateRequest) ZKResponse {
 		s.Put(mkPathCVer(p), "", opts...)
 		s.Put(mkPathACL(p), encodeACLs(op.Acl), opts...)
 		s.Put(mkPathCount(p), encodeInt64(0), opts...)
-
 		return nil
 	}
-
-	var apiErr error
-	resp, err := z.doSTM(wrapErr(&apiErr, applyf))
-	if err != nil {
-		return mkErr(err)
+	reply := func(xid Xid, zxid ZXid) ZKResponse {
+		z.s.Wait(zxid, p, EventNodeCreated)
+		return mkZKResp(xid, zxid, &CreateResponse{respPath})
 	}
-
-	zxid := ZXid(resp.Header.Revision)
-	switch apiErr {
-	case nil:
-	case ErrNoNode:
-		// parent missing
-		return mkZKErr(xid, zxid, errNoNode)
-	case ErrNodeExists:
-		// this key already exists
-		return mkZKErr(xid, zxid, errNodeExists)
-	case ErrInvalidACL:
-		return mkZKErr(xid, zxid, errInvalidAcl)
-	default:
-		return mkZKErr(xid, zxid, errAPIError)
-	}
-
-	z.s.Wait(zxid, p, EventNodeCreated)
-	crResp := &CreateResponse{respPath}
-
-	glog.V(7).Infof("Create(%v) = (zxid=%v, resp=%+v); txnresp.Header: %+v", zxid, xid, *crResp, resp.Header)
-	return mkZKResp(xid, zxid, crResp)
+	return opBundle{apply, reply}
 }
 
 func (z *zkEtcd) GetChildren2(xid Xid, op *GetChildren2Request) ZKResponse {
@@ -186,17 +175,29 @@ func (z *zkEtcd) Ping(xid Xid, op *PingRequest) ZKResponse {
 }
 
 func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
+	b := z.mkDeleteTxnOp(op)
+	resp, zkErr := z.doWrappedSTM(xid, b.apply)
+	if resp == nil {
+		return zkErr
+	}
+	glog.V(7).Infof("Delete(%v) = (zxid=%v, resp=%+v)", xid, resp.Header.Revision, *resp)
+	return b.reply(xid, ZXid(resp.Header.Revision))
+}
+
+func (z *zkEtcd) mkDeleteTxnOp(op *DeleteRequest) opBundle {
 	p := mkPath(op.Path)
 	pp := mkPath(path.Dir(op.Path))
 	key := mkPathKey(p)
 
-	applyf := func(s v3sync.STM) error {
-		if pp != rootPath && s.Rev(mkPathCTime(pp)) == 0 {
+	apply := func(s v3sync.STM) error {
+		if pp != rootPath && len(s.Get(mkPathCTime(pp))) == 0 {
 			// no parent
 			updateErrRev(s)
 			return ErrNoNode
 		}
-		if s.Rev(mkPathCTime(p)) == 0 {
+		// was s.Rev(mkPathCTime(p)), but stm will not
+		// set the rev of a new key until committed
+		if len(s.Get(mkPathCTime(p))) == 0 {
 			updateErrRev(s)
 			return ErrNoNode
 		}
@@ -239,30 +240,12 @@ func (z *zkEtcd) Delete(xid Xid, op *DeleteRequest) ZKResponse {
 		return nil
 	}
 
-	var apiErr error
-	resp, err := z.doSTM(wrapErr(&apiErr, applyf))
-	if err != nil {
-		return mkErr(err)
+	reply := func(xid Xid, zxid ZXid) ZKResponse {
+		z.s.Wait(zxid, p, EventNodeDeleted)
+		return mkZKResp(xid, zxid, &DeleteResponse{})
 	}
 
-	zxid := ZXid(resp.Header.Revision)
-	switch apiErr {
-	case nil:
-	case ErrNoNode:
-		return mkZKErr(xid, zxid, errNoNode)
-	case ErrBadVersion:
-		return mkZKErr(xid, zxid, errBadVersion)
-	case ErrNotEmpty:
-		return mkZKErr(xid, zxid, errNotEmpty)
-	default:
-		return mkZKErr(xid, zxid, errAPIError)
-	}
-
-	delResp := &DeleteResponse{}
-	z.s.Wait(zxid, p, EventNodeDeleted)
-
-	glog.V(7).Infof("Delete(%v) = (zxid=%v, resp=%+v)", xid, zxid, *delResp)
-	return mkZKResp(xid, zxid, delResp)
+	return opBundle{apply, reply}
 }
 
 func (z *zkEtcd) Exists(xid Xid, op *ExistsRequest) ZKResponse {
@@ -340,17 +323,23 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 }
 
 func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
+	b := z.mkSetDataTxnOp(op)
+	resp, zkErr := z.doWrappedSTM(xid, b.apply)
+	if resp == nil {
+		return zkErr
+	}
+	glog.V(7).Infof("SetData(%v) = (zxid=%v); txnresp: %+v", xid, resp.Header.Revision, *resp)
+	return b.reply(xid, ZXid(resp.Header.Revision))
+}
+
+func (z *zkEtcd) mkSetDataTxnOp(op *SetDataRequest) opBundle {
 	if err := validatePath(op.Path); err != nil {
-		zxid, err := z.incrementAndGetZxid()
-		if err != nil {
-			return mkErr(err)
-		}
-		return mkZKErr(xid, zxid, errBadArguments)
+		return mkBadArgumentsTxnOp()
 	}
 
 	p := mkPath(op.Path)
 	var statResp etcd.TxnResponse
-	applyf := func(s v3sync.STM) error {
+	apply := func(s v3sync.STM) error {
 		if s.Rev(mkPathVer(p)) == 0 {
 			updateErrRev(s)
 			return ErrNoNode
@@ -371,29 +360,13 @@ func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
 		statResp = *resp
 		return nil
 	}
-	var apiErr error
-	resp, err := z.doSTM(wrapErr(&apiErr, applyf))
-	if err != nil {
-		return mkErr(err)
+
+	reply := func(xid Xid, zxid ZXid) ZKResponse {
+		z.s.Wait(zxid, p, EventNodeDataChanged)
+		return mkZKResp(xid, zxid, &SetDataResponse{Stat: statTxn(&statResp)})
 	}
 
-	zxid := ZXid(resp.Header.Revision)
-	switch apiErr {
-	case nil:
-	case ErrNoNode:
-		return mkZKErr(xid, zxid, errNoNode)
-	case ErrBadVersion:
-		return mkZKErr(xid, zxid, errBadVersion)
-	default:
-		return mkZKErr(xid, zxid, errAPIError)
-	}
-
-	sdresp := &SetDataResponse{}
-	sdresp.Stat = statTxn(&statResp)
-	z.s.Wait(zxid, p, EventNodeDataChanged)
-
-	glog.V(7).Infof("SetData(%v) = (zxid=%v, resp=%+v)", xid, zxid, *sdresp)
-	return mkZKResp(xid, zxid, sdresp)
+	return opBundle{apply, reply}
 }
 
 func (z *zkEtcd) GetAcl(xid Xid, op *GetAclRequest) ZKResponse {
@@ -484,7 +457,105 @@ func (z *zkEtcd) Sync(xid Xid, op *SyncRequest) ZKResponse {
 	return mkZKResp(xid, zxid, &CreateResponse{op.Path})
 }
 
-func (z *zkEtcd) Multi(xid Xid, op *MultiRequest) ZKResponse { panic("multi") }
+func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
+	bs := make([]opBundle, len(mreq.Ops))
+	for i, op := range mreq.Ops {
+		switch req := op.Op.(type) {
+		case *CreateRequest:
+			bs[i] = z.mkCreateTxnOp(req)
+		case *DeleteRequest:
+			bs[i] = z.mkDeleteTxnOp(req)
+		case *SetDataRequest:
+			bs[i] = z.mkSetDataTxnOp(req)
+		case *CheckVersionRequest:
+			bs[i] = z.mkCheckVersionPathTxnOp(req)
+		default:
+			panic(fmt.Sprintf("unknown multi %+v %T", op.Op, op.Op))
+		}
+	}
+
+	apply := func(s v3sync.STM) error {
+		for _, b := range bs {
+			if err := b.apply(s); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	reply := func(xid Xid, zxid ZXid) ZKResponse {
+		ops := make([]MultiResponseOp, len(bs))
+		for i, b := range bs {
+			resp := b.reply(xid, zxid)
+			ops[i].Header = MultiHeader{Err: 0}
+			switch r := resp.Resp.(type) {
+			case *CreateResponse:
+				ops[i].Header.Type = opCreate
+				ops[i].String = r.Path
+			case *SetDataResponse:
+				ops[i].Header.Type = opSetData
+				ops[i].Stat = &r.Stat
+			case *DeleteResponse:
+				ops[i].Header.Type = opDelete
+			case *struct{}:
+				ops[i].Header.Type = opCheck
+			default:
+				panic(fmt.Sprintf("unknown multi %+v %T", resp, resp))
+			}
+		}
+		mresp := &MultiResponse{
+			Ops:        ops,
+			DoneHeader: MultiHeader{Type: opMulti},
+		}
+		return mkZKResp(xid, zxid, mresp)
+	}
+
+	resp, err := z.doSTM(apply)
+	if resp == nil {
+		// txn aborted, possibly due to any API error
+		if _, ok := errorToErrCode[err]; !ok {
+			// aborted due to non-API error
+			return mkErr(err)
+		}
+		zxid, zerr := z.incrementAndGetZxid()
+		if zerr != nil {
+			return mkErr(zerr)
+		}
+		// zkdocker seems to always return API error...
+		zkresp := apiErrToZKErr(xid, zxid, err)
+		zkresp.Hdr.Err = errAPIError
+		return zkresp
+	}
+
+	mresp := reply(xid, ZXid(resp.Header.Revision))
+	glog.V(7).Infof("Multi(%v) = (zxid=%v); txnresp: %+v", *mreq, resp.Header.Revision, *resp)
+	return mresp
+}
+
+func (z *zkEtcd) mkCheckVersionPathTxnOp(op *CheckVersionRequest) opBundle {
+	if err := validatePath(op.Path); err != nil {
+		return mkBadArgumentsTxnOp()
+	}
+	p := mkPath(op.Path)
+	apply := func(s v3sync.STM) (err error) {
+		if op.Version == Ver(-1) {
+			return nil
+		}
+		ver := s.Get(mkPathVer(p))
+		if len(ver) == 0 {
+			return ErrNoNode
+		}
+		zkVer := Ver(decodeInt64([]byte(ver)))
+		if op.Version != zkVer {
+			return ErrBadVersion
+		}
+		return nil
+	}
+	reply := func(xid Xid, zxid ZXid) ZKResponse {
+		return mkZKResp(xid, zxid, &struct{}{})
+	}
+	return opBundle{apply, reply}
+}
 
 func (z *zkEtcd) Close(xid Xid, op *CloseRequest) ZKResponse {
 	resp, _ := z.c.Revoke(z.c.Ctx(), etcd.LeaseID(z.s.Sid()))
@@ -567,6 +638,26 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 	return mkZKResp(xid, curZXid, swresp)
 }
 
+func (z *zkEtcd) doWrappedSTM(xid Xid, applyf func(s v3sync.STM) error) (*etcd.TxnResponse, ZKResponse) {
+	var apiErr error
+	resp, err := z.doSTM(wrapErr(&apiErr, applyf))
+	if err != nil {
+		return nil, mkErr(err)
+	}
+	if apiErr != nil {
+		return nil, apiErrToZKErr(xid, ZXid(resp.Header.Revision), apiErr)
+	}
+	return resp, ZKResponse{}
+}
+
+func apiErrToZKErr(xid Xid, zxid ZXid, apiErr error) ZKResponse {
+	errCode, ok := errorToErrCode[apiErr]
+	if !ok {
+		errCode = errAPIError
+	}
+	return mkZKErr(xid, zxid, errCode)
+}
+
 func (z *zkEtcd) doSTM(applyf func(s v3sync.STM) error) (*etcd.TxnResponse, error) {
 	return v3sync.NewSTMSerializable(z.c.Ctx(), z.c, applyf)
 }
@@ -639,5 +730,14 @@ func wrapErr(err *error, f func(s v3sync.STM) error) func(s v3sync.STM) error {
 func updateErrRev(s v3sync.STM) {
 	if PerfectZXidMode {
 		s.Put(mkPathErrNode(), "1")
+	}
+}
+
+func mkBadArgumentsTxnOp() opBundle {
+	return opBundle{
+		apply: func(s v3sync.STM) error {
+			updateErrRev(s)
+			return ErrBadArguments
+		},
 	}
 }

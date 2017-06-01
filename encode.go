@@ -311,6 +311,36 @@ func (r *MultiRequest) Decode(buf []byte) (int, error) {
 	return total, nil
 }
 
+func (r *MultiResponse) Encode(buf []byte) (int, error) {
+	total := 0
+	for _, op := range r.Ops {
+		op.Header.Done = false
+		n, err := encodePacketValue(buf[total:], reflect.ValueOf(op.Header))
+		if err != nil {
+			return total, err
+		}
+		total += n
+		n = 0
+		switch op.Header.Type {
+		case opCreate:
+			n, err = encodePacketValue(buf[total:], reflect.ValueOf(op.String))
+		case opSetData:
+			n, err = encodePacketValue(buf[total:], reflect.ValueOf(op.Stat))
+		}
+		total += n
+		if err != nil {
+			return total, err
+		}
+	}
+	r.DoneHeader.Done = true
+	n, err := encodePacketValue(buf[total:], reflect.ValueOf(r.DoneHeader))
+	if err != nil {
+		return total, err
+	}
+	total += n
+	return total, nil
+}
+
 func (r *MultiResponse) Decode(buf []byte) (int, error) {
 	r.Ops = make([]MultiResponseOp, 0)
 	r.DoneHeader = MultiHeader{-1, true, -1}

@@ -13,6 +13,9 @@
 // limitations under the License.
 
 // Package integration is used for testing zetcd against a full etcd server.
+//
+// Build `go test -tags zkdocker` to run tests against a zookeeper instance
+// over docker.
 package integration
 
 // force import so glide picks it up
