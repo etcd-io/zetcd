@@ -415,7 +415,7 @@ func TestRUOK(t *testing.T) {
 	zkclus := newZKCluster(t)
 	defer zkclus.Close(t)
 
-	conn, err := net.Dial("tcp", zkclus.zkClientAddr)
+	conn, err := net.Dial("tcp", zkclus.Addr())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -572,7 +572,7 @@ func runTest(t *testing.T, f func(*testing.T, *zk.Conn)) {
 	zkclus := newZKCluster(t)
 	defer zkclus.Close(t)
 
-	c, _, err := zk.Connect([]string{zkclus.zkClientAddr}, time.Second)
+	c, _, err := zk.Connect([]string{zkclus.Addr()}, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

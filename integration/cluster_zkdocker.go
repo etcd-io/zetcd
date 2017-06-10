@@ -16,52 +16,12 @@
 
 package integration
 
-import (
-	"net"
-	"testing"
-	"time"
-)
+import "testing"
 
-type zkCluster struct {
-	zkClientAddr string
-
-	c *Container
-}
-
-var zkContainerName = "zetcd-zk-test"
-var zkDockerFile = "../docker/zk/Dockerfile"
-
-func newZKCluster(t *testing.T) *zkCluster {
-	c, err := NewContainer(zkContainerName, zkDockerFile, []string{"2181/tcp"})
+func newZKCluster(t *testing.T) zkCluster {
+	c, err := NewZKDockerCluster()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// poll until zk server is available
-	for {
-		time.Sleep(200 * time.Millisecond)
-		conn, cerr := net.Dial("tcp", "127.0.0.1:2181")
-		if cerr != nil {
-			t.Fatal(cerr)
-		}
-		if _, werr := conn.Write([]byte("ruok")); werr != nil {
-			conn.Close()
-			continue
-		}
-		imok := make([]byte, 4)
-		if _, rerr := conn.Read(imok); rerr != nil {
-			conn.Close()
-			continue
-		}
-		conn.Close()
-		if string(imok) == "imok" {
-			break
-		}
-	}
-	return &zkCluster{zkClientAddr: "127.0.0.1:2181", c: c}
-}
-
-func (zkclus *zkCluster) Close(t *testing.T) {
-	if err := zkclus.c.Close(); err != nil {
-		t.Fatal(err)
-	}
+	return c
 }

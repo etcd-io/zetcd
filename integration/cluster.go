@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !zkdocker
-
 package integration
 
-import "testing"
+import (
+	"testing"
+)
 
-func newZKCluster(t *testing.T) zkCluster { return NewZetcdCluster(t) }
+type zkCluster interface {
+	Addr() string
+	Close(t *testing.T)
+}
