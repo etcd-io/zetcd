@@ -338,7 +338,6 @@ func (z *zkEtcd) mkSetDataTxnOp(op *SetDataRequest) opBundle {
 	}
 
 	p := mkPath(op.Path)
-	var statResp etcd.TxnResponse
 	apply := func(s v3sync.STM) error {
 		if s.Rev(mkPathVer(p)) == 0 {
 			updateErrRev(s)
@@ -352,18 +351,17 @@ func (z *zkEtcd) mkSetDataTxnOp(op *SetDataRequest) opBundle {
 		s.Put(mkPathKey(p), string(op.Data))
 		s.Put(mkPathVer(p), string(encodeInt64(int64(currentVersion+1))))
 		s.Put(mkPathMTime(p), encodeTime())
-
-		resp, err := z.c.Txn(z.c.Ctx()).Then(statGets(p)...).Commit()
-		if err != nil {
-			return err
-		}
-		statResp = *resp
 		return nil
 	}
 
 	reply := func(xid Xid, zxid ZXid) ZKResponse {
 		z.s.Wait(zxid, p, EventNodeDataChanged)
-		return mkZKResp(xid, zxid, &SetDataResponse{Stat: statTxn(&statResp)})
+		statResp, err := z.c.Txn(z.c.Ctx()).Then(statGetsRev(p, int64(zxid))...).Commit()
+		if err != nil {
+			glog.Warningf("set data failed (%v)", err)
+			return mkZKErr(xid, zxid, errSystemError)
+		}
+		return mkZKResp(xid, zxid, &SetDataResponse{Stat: statTxn(statResp)})
 	}
 
 	return opBundle{apply, reply}

@@ -18,18 +18,20 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 )
 
-func statGets(p string) []etcd.Op {
+func statGetsRev(p string, rev int64) []etcd.Op {
 	return []etcd.Op{
-		etcd.OpGet(mkPathCTime(p), etcd.WithSerializable()),
-		etcd.OpGet(mkPathMTime(p), etcd.WithSerializable(),
+		etcd.OpGet(mkPathCTime(p), etcd.WithSerializable(), etcd.WithRev(rev)),
+		etcd.OpGet(mkPathMTime(p), etcd.WithSerializable(), etcd.WithRev(rev),
 			etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend)),
-		etcd.OpGet(mkPathKey(p), etcd.WithSerializable()),
-		etcd.OpGet(mkPathCVer(p), etcd.WithSerializable()),
-		etcd.OpGet(mkPathACL(p), etcd.WithSerializable(), etcd.WithKeysOnly()),
+		etcd.OpGet(mkPathKey(p), etcd.WithSerializable(), etcd.WithRev(rev)),
+		etcd.OpGet(mkPathCVer(p), etcd.WithSerializable(), etcd.WithRev(rev)),
+		etcd.OpGet(mkPathACL(p), etcd.WithSerializable(), etcd.WithRev(rev), etcd.WithKeysOnly()),
 		// to compute num children
-		etcd.OpGet(getListPfx(p), etcd.WithSerializable(), etcd.WithPrefix()),
+		etcd.OpGet(getListPfx(p), etcd.WithSerializable(), etcd.WithRev(rev), etcd.WithPrefix()),
 	}
 }
+
+func statGets(p string) []etcd.Op { return statGetsRev(p, 0) }
 
 func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
 	ctime := txnresp.Responses[0].GetResponseRange()
