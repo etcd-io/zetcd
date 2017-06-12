@@ -21,20 +21,27 @@ import (
 )
 
 // NewAuth takes a candidate AuthFunc and an oracle AuthFunc
-func NewAuth(cAuth, oAuth zetcd.AuthFunc) zetcd.AuthFunc {
+func NewAuth(cAuth, oAuth zetcd.AuthFunc, errc chan<- error) zetcd.AuthFunc {
 	sp := newSessionPool()
 	return func(zka zetcd.AuthConn) (zetcd.Session, error) {
-		return Auth(sp, zka, cAuth, oAuth)
+		s, err := Auth(sp, zka, cAuth, oAuth)
+		if _, ok := err.(*XchkError); ok {
+			select {
+			case errc <- err:
+			default:
+			}
+		}
+		return s, err
 	}
 }
 
 // NewZK takes a candidate ZKFunc and an oracle ZKFunc, returning a cross checker.
-func NewZK(cZK, oZK zetcd.ZKFunc) zetcd.ZKFunc {
+func NewZK(cZK, oZK zetcd.ZKFunc, errc chan<- error) zetcd.ZKFunc {
 	return func(s zetcd.Session) (zetcd.ZK, error) {
 		ss, ok := s.(*session)
 		if !ok {
 			return nil, fmt.Errorf("expected xchk.session")
 		}
-		return newZK(ss, cZK, oZK)
+		return newZK(ss, cZK, oZK, errc)
 	}
 }

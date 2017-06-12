@@ -16,7 +16,6 @@ package xchk
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"time"
 
@@ -24,27 +23,16 @@ import (
 	"github.com/golang/glog"
 )
 
-var (
-	errStat        = fmt.Errorf("stat mismatch")
-	errData        = fmt.Errorf("data mismatch")
-	errAcl         = fmt.Errorf("acl mismatch")
-	errNumAcl      = fmt.Errorf("acl length mismatch")
-	errPath        = fmt.Errorf("path mismatch")
-	errErr         = fmt.Errorf("err mismatch")
-	errZXid        = fmt.Errorf("zxid mismatch")
-	errNumChildren = fmt.Errorf("number of children mismatch")
-	errChildren    = fmt.Errorf("children paths mismatch")
-)
-
 // zkXchk takes incoming ZK requests and forwards them to a remote ZK server
 type zkXchk struct {
 	s *session
 
-	cZK zetcd.ZK
-	oZK zetcd.ZK
+	cZK  zetcd.ZK
+	oZK  zetcd.ZK
+	errc chan<- error
 }
 
-func newZK(s *session, cZKf, oZKf zetcd.ZKFunc) (*zkXchk, error) {
+func newZK(s *session, cZKf, oZKf zetcd.ZKFunc, errc chan<- error) (*zkXchk, error) {
 	cZK, cerr := cZKf(s.candidate)
 	if cerr != nil {
 		return nil, cerr
@@ -53,14 +41,14 @@ func newZK(s *session, cZKf, oZKf zetcd.ZKFunc) (*zkXchk, error) {
 	if oerr != nil {
 		return nil, oerr
 	}
-	return &zkXchk{s, cZK, oZK}, nil
+	return &zkXchk{s, cZK, oZK, errc}, nil
 }
 
 func (xchk *zkXchk) Create(xid zetcd.Xid, op *zetcd.CreateRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Create(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.Create(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -74,8 +62,8 @@ func (xchk *zkXchk) Create(xid zetcd.Xid, op *zetcd.CreateRequest) zetcd.ZKRespo
 func (xchk *zkXchk) Delete(xid zetcd.Xid, op *zetcd.DeleteRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Delete(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.Delete(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -85,8 +73,8 @@ func (xchk *zkXchk) Delete(xid zetcd.Xid, op *zetcd.DeleteRequest) zetcd.ZKRespo
 func (xchk *zkXchk) Exists(xid zetcd.Xid, op *zetcd.ExistsRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Exists(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.Exists(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -101,8 +89,8 @@ func (xchk *zkXchk) Exists(xid zetcd.Xid, op *zetcd.ExistsRequest) zetcd.ZKRespo
 func (xchk *zkXchk) GetData(xid zetcd.Xid, op *zetcd.GetDataRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.GetData(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.GetData(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -120,8 +108,8 @@ func (xchk *zkXchk) GetData(xid zetcd.Xid, op *zetcd.GetDataRequest) zetcd.ZKRes
 func (xchk *zkXchk) SetData(xid zetcd.Xid, op *zetcd.SetDataRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.SetData(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.SetData(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -136,8 +124,8 @@ func (xchk *zkXchk) SetData(xid zetcd.Xid, op *zetcd.SetDataRequest) zetcd.ZKRes
 func (xchk *zkXchk) GetAcl(xid zetcd.Xid, op *zetcd.GetAclRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.GetAcl(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.GetAcl(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -165,8 +153,8 @@ func (xchk *zkXchk) GetAcl(xid zetcd.Xid, op *zetcd.GetAclRequest) zetcd.ZKRespo
 func (xchk *zkXchk) SetAcl(xid zetcd.Xid, op *zetcd.SetAclRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.SetAcl(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.SetAcl(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -182,8 +170,8 @@ func (xchk *zkXchk) SetAcl(xid zetcd.Xid, op *zetcd.SetAclRequest) zetcd.ZKRespo
 func (xchk *zkXchk) GetChildren(xid zetcd.Xid, op *zetcd.GetChildrenRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.GetChildren(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.GetChildren(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -209,8 +197,8 @@ func (xchk *zkXchk) GetChildren(xid zetcd.Xid, op *zetcd.GetChildrenRequest) zet
 func (xchk *zkXchk) Sync(xid zetcd.Xid, op *zetcd.SyncRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Sync(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.Sync(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -224,16 +212,16 @@ func (xchk *zkXchk) Sync(xid zetcd.Xid, op *zetcd.SyncRequest) zetcd.ZKResponse 
 func (xchk *zkXchk) Ping(xid zetcd.Xid, op *zetcd.PingRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Ping(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.Ping(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	return or
 }
 
 func (xchk *zkXchk) GetChildren2(xid zetcd.Xid, op *zetcd.GetChildren2Request) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.GetChildren2(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.GetChildren2(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	if err != nil || or.Resp == nil {
 		return or
 	}
@@ -262,24 +250,24 @@ func (xchk *zkXchk) Multi(xid zetcd.Xid, op *zetcd.MultiRequest) zetcd.ZKRespons
 func (xchk *zkXchk) Close(xid zetcd.Xid, op *zetcd.CloseRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Close(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.Close(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	return or
 }
 
 func (xchk *zkXchk) SetAuth(xid zetcd.Xid, op *zetcd.SetAuthRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.SetAuth(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.SetAuth(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	return or
 }
 
 func (xchk *zkXchk) SetWatches(xid zetcd.Xid, op *zetcd.SetWatchesRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.SetWatches(xid, op) }
 	of := func() zetcd.ZKResponse { return xchk.oZK.SetWatches(xid, op) }
-	cr, or, err := xchkResp(cf, of)
-	defer func() { reportErr(cr, or, err) }()
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
 	return or
 }
 
@@ -301,7 +289,7 @@ func xchkHdr(cresp, oresp zetcd.ZKResponse) error {
 	return nil
 }
 
-func xchkResp(cf, of zkfunc) (cresp zetcd.ZKResponse, oresp zetcd.ZKResponse, err error) {
+func (xchk *zkXchk) xchkResp(cf, of zkfunc) (cresp zetcd.ZKResponse, oresp zetcd.ZKResponse, err error) {
 	cch, och := make(chan zetcd.ZKResponse, 1), make(chan zetcd.ZKResponse, 1)
 	go func() { cch <- cf() }()
 	go func() { och <- of() }()
@@ -313,7 +301,7 @@ func xchkResp(cf, of zkfunc) (cresp zetcd.ZKResponse, oresp zetcd.ZKResponse, er
 	case cresp = <-cch:
 	case oresp = <-och:
 	case <-time.After(time.Second):
-		glog.Warningf("took longer than 1s reading second resp (%+v,%+v) (%+v,%+v)", cresp.Hdr, cresp.Resp, oresp.Hdr, cresp.Resp)
+		xchk.reportErr(cresp, oresp, errBadAuth)
 		select {
 		case cresp = <-cch:
 		case oresp = <-och:
@@ -322,19 +310,18 @@ func xchkResp(cf, of zkfunc) (cresp zetcd.ZKResponse, oresp zetcd.ZKResponse, er
 	return cresp, oresp, xchkHdr(cresp, oresp)
 }
 
-func reportErr(cr, or zetcd.ZKResponse, err error) {
+func (xchk *zkXchk) reportErr(cr, or zetcd.ZKResponse, err error) {
 	if err == nil {
 		return
 	}
-	switch {
-	case err == errErr || err == errZXid:
-		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v\n", err, cr.Hdr, or.Hdr)
-	case cr.Resp != nil && or.Resp != nil:
-		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v\n", err, cr.Resp, or.Resp)
-	case cr.Hdr != nil && or.Hdr != nil:
-		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v\n", err, cr.Hdr, or.Hdr)
-	default:
-		glog.Warningf("xchk failed (%v)\ncandidate: %+v\noracle: %+v", err, cr, or)
+	xerr := &XchkError{err: err, cr: cr, or: or}
+	glog.Warning(xerr)
+	if xchk.errc != nil {
+		select {
+		case xchk.errc <- xerr:
+		case <-xchk.s.StopNotify():
+			return
+		}
 	}
 }
 
