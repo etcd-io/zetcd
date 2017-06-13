@@ -64,7 +64,7 @@ func (z *zkEtcd) mkCreateTxnOp(op *CreateRequest) opBundle {
 		zkPath = fmt.Sprintf("%s1", zkPath)
 	}
 	if err := validatePath(zkPath); err != nil {
-		return mkBadArgumentsTxnOp()
+		return mkErrTxnOp(ErrInvalidACL)
 	}
 
 	opts := []etcd.OpOption{}
@@ -334,7 +334,7 @@ func (z *zkEtcd) SetData(xid Xid, op *SetDataRequest) ZKResponse {
 
 func (z *zkEtcd) mkSetDataTxnOp(op *SetDataRequest) opBundle {
 	if err := validatePath(op.Path); err != nil {
-		return mkBadArgumentsTxnOp()
+		return mkErrTxnOp(ErrBadArguments)
 	}
 
 	p := mkPath(op.Path)
@@ -532,7 +532,7 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 
 func (z *zkEtcd) mkCheckVersionPathTxnOp(op *CheckVersionRequest) opBundle {
 	if err := validatePath(op.Path); err != nil {
-		return mkBadArgumentsTxnOp()
+		return mkErrTxnOp(ErrBadArguments)
 	}
 	p := mkPath(op.Path)
 	apply := func(s v3sync.STM) (err error) {
@@ -731,11 +731,11 @@ func updateErrRev(s v3sync.STM) {
 	}
 }
 
-func mkBadArgumentsTxnOp() opBundle {
+func mkErrTxnOp(err error) opBundle {
 	return opBundle{
 		apply: func(s v3sync.STM) error {
 			updateErrRev(s)
-			return ErrBadArguments
+			return err
 		},
 	}
 }
