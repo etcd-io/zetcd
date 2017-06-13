@@ -321,22 +321,47 @@ func TestChildren(t *testing.T) {
 		if _, err := c.Create("/abc/def", []byte(""), 0, acl); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := c.Create("/abc/123", []byte(""), 0, acl); err != nil {
+		if _, err := c.Create("/abc/def/123", []byte(""), 0, acl); err != nil {
 			t.Fatal(err)
 		}
-		children, _, err := c.Children("/")
+		if _, err := c.Create("/abc/def/456", []byte(""), 0, acl); err != nil {
+			t.Fatal(err)
+		}
+		children, _, err := c.Children("/abc/def")
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
-		if len(children) != 1 {
-			t.Fatalf("expected one child, got %v", children)
+		if len(children) != 2 || children[0] != "123" || children[1] != "456" {
+			t.Errorf("expected [123 456], got %v", children)
 		}
 		children, _, err = c.Children("/abc")
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+		}
+		if len(children) != 1 {
+			t.Errorf("expected /abc/def, got %v", children)
+		}
+	})
+}
+
+func TestChildrenQuota(t *testing.T) {
+	runTest(t, func(t *testing.T, c *zk.Conn) {
+		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
+			t.Error(err)
+		}
+		children, _, err := c.Children("/")
+		if len(children) == 1 && children[0] == "abc" {
+			t.Skipf("quota not supported yet, got %v", children)
 		}
 		if len(children) != 2 {
-			t.Fatalf("expected two children, got %v", children)
+			t.Errorf("expected [abc zookeeper], got %v", children)
+		}
+		children, _, err = c.Children("/zookeeper")
+		if err != nil {
+			t.Error(err)
+		}
+		if len(children) != 1 || children[0] != "quota" {
+			t.Skipf("expected [quota], got %v, but no quota support yet", children)
 		}
 	})
 }
