@@ -138,7 +138,7 @@ func (s *session) Sid() zetcd.Sid { return s.oracle.Sid() }
 
 func (s *session) Wait(rev zetcd.ZXid, path string, evtype zetcd.EventType) { panic("stub") }
 
-func (s *session) Watch(rev zetcd.ZXid, xid zetcd.Xid, path string, evtype zetcd.EventType, cb func(zetcd.ZXid)) {
+func (s *session) Watch(rev zetcd.ZXid, xid zetcd.Xid, path string, evtype zetcd.EventType, cb zetcd.WatchHandler) {
 	panic("stuB")
 }
 
