@@ -400,13 +400,38 @@ func TestCreateInvalidACL(t *testing.T) {
 
 func TestCreateInvalidPath(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
-		werr := zetcd.ErrUnknown
+		werr := zetcd.ErrInvalidACL
 		resp, err := c.Create("/.", []byte("x"), 0, nil)
 		if err == nil {
-			t.Fatalf("created with invalid path %v, wanted %v", resp, werr)
+			t.Errorf("created with invalid path %v, wanted %v", resp, werr)
+		} else if err.Error() != werr.Error() {
+			t.Errorf("got err %v, wanted %v", err, werr)
 		}
-		if err.Error() != werr.Error() {
-			t.Fatalf("got err %v, wanted %v", err, werr)
+
+		// this is ErrBadArguments under the hood but the zk library
+		// doesn't recognize it so it goes to ErrUnknown
+		werr = zetcd.ErrUnknown
+		sresp, err := c.Set("/.", []byte("x"), -1)
+		if err == nil {
+			t.Errorf("created with invalid path %v, wanted %v", sresp, werr)
+		} else if err.Error() != werr.Error() {
+			t.Errorf("got err %v, wanted %v", err, werr)
+		}
+
+		werr = zetcd.ErrNoNode
+		err = c.Delete("/.", -1)
+		if err == nil {
+			t.Errorf("created with invalid path %v, wanted %v", sresp, werr)
+		} else if err.Error() != werr.Error() {
+			t.Errorf("got err %v, wanted %v", err, werr)
+		}
+
+		werr = zetcd.ErrNoNode
+		_, _, err = c.Get("/.")
+		if err == nil {
+			t.Errorf("got err %v, wanted %v", err, werr)
+		} else if err.Error() != werr.Error() {
+			t.Errorf("got err %v, wanted %v", err, werr)
 		}
 	})
 }
