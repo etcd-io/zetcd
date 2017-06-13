@@ -171,6 +171,7 @@ func TestCreateSequential(t *testing.T) {
 		}
 		// Test node creation with a trailing / character. This should produce
 		// a subdirectory, with the parent node acting as the counter.
+		// This will create node#2 in /abc/ (but not sequentially named)
 		if _, err := c.Create("/abc/defg", []byte("x"), 0, acl); err != nil {
 			t.Fatal(err)
 		}
@@ -189,11 +190,12 @@ func TestCreateSequential(t *testing.T) {
 		}
 		// Check that creating /abc/def increments to 3 (i.e. the above did not
 		// get stored under the parent node somehow.
+		// This will create node#3 in /abc/
 		s, err = c.Create("/abc/def", []byte("x"), zk.FlagSequence, acl)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s != "/abc/def0000000002" {
+		if s != "/abc/def0000000003" {
 			t.Fatalf("got %s, expected /abc/def%010d", s, 2)
 		}
 	})

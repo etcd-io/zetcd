@@ -94,17 +94,18 @@ func (z *zkEtcd) mkCreateTxnOp(op *CreateRequest) opBundle {
 		}
 
 		p, respPath = mkPath(op.Path), op.Path
+
+		count := int32(decodeInt64([]byte(s.Get(mkPathCount(pp)))))
 		if op.Flags&FlagSequence != 0 {
-			count := int32(decodeInt64([]byte(s.Get(mkPathCount(pp)))))
 			// force as int32 to get integer overflow as per zk docs
 			cstr := fmt.Sprintf("%010d", count)
 			p += cstr
 			respPath += cstr
-			count++
-			s.Put(mkPathCount(pp), encodeInt64(int64(count)))
 		} else if len(s.Get(mkPathCTime(p))) != 0 {
 			return ErrNodeExists
 		}
+		count++
+		s.Put(mkPathCount(pp), encodeInt64(int64(count)))
 
 		t := encodeTime()
 
