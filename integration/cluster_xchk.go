@@ -12,16 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build zkdocker
+// +build xchk,docker
 
 package integration
 
 import "testing"
 
 func newZKCluster(t *testing.T) zkCluster {
-	c, err := NewZKDockerCluster()
+	oracle, err := NewZKDockerCluster()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return c
+	xchk := NewClusterXChk(oracle, NewZetcdCluster(t))
+	go func() {
+		for err := range xchk.xerrc {
+			t.Error(err)
+		}
+	}()
+	return xchk
 }

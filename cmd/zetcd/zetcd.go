@@ -96,8 +96,8 @@ func newOracle(etcdEps []string, bridgeAddr, oracle string) (p personality) {
 		fmt.Println("oracle expected etcd or zk, got", oracle)
 		os.Exit(1)
 	}
-	p.authf = xchk.NewAuth(cper.authf, oper.authf)
-	p.zkf = xchk.NewZK(cper.zkf, oper.zkf)
+	p.authf = xchk.NewAuth(cper.authf, oper.authf, nil)
+	p.zkf = xchk.NewZK(cper.zkf, oper.zkf, nil)
 	p.ctx = cper.ctx
 	return p
 }

@@ -105,11 +105,8 @@ func Auth(sp *sessionPool, zka zetcd.AuthConn, cAuth, oAuth zetcd.AuthFunc) (zet
 	oresp, cresp := <-ozka.respc, <-czka.respc
 	vNil := oresp == nil && cresp == nil
 	vVal := oresp != nil && cresp != nil
-	if !vNil && !vVal {
-		return nil, fmt.Errorf("mismatch %+v vs %+v", oresp, cresp)
-	}
-	if oresp == nil {
-		return nil, fmt.Errorf("bad oracle response")
+	if !vNil && !vVal || oresp == nil {
+		return nil, &XchkError{err: errBadAuth, acr: *cresp, aor: *oresp}
 	}
 
 	// save session info in case of resume
@@ -118,7 +115,8 @@ func Auth(sp *sessionPool, zka zetcd.AuthConn, cAuth, oAuth zetcd.AuthFunc) (zet
 	xzkc, xerr := xzka.Write(zetcd.AuthResponse{Resp: oresp.Resp})
 	oerr, cerr := <-oerrc, <-cerrc
 	if xerr != nil || cerr != nil || oerr != nil {
-		return nil, fmt.Errorf("err: xchk: %v. oracle: %v. candidate: %v", oerr, cerr)
+		err := fmt.Errorf("candiate: %v; oracle: %v; xchk: %v", cerr, oerr, xerr)
+		return nil, &XchkError{err: err, acr: *cresp, aor: *oresp}
 	}
 
 	return &session{
