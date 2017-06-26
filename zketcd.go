@@ -155,7 +155,7 @@ func (z *zkEtcd) GetChildren2(xid Xid, op *GetChildren2Request) ZKResponse {
 
 	zxid := ZXid(txnresp.Header.Revision)
 	if op.Watch {
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
 				Type:  EventNodeChildrenChanged,
 				State: StateSyncConnected,
@@ -267,9 +267,9 @@ func (z *zkEtcd) Exists(xid Xid, op *ExistsRequest) ZKResponse {
 		if exResp.Stat.Mtime == 0 {
 			ev = EventNodeCreated
 		}
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
-				Type:  ev,
+				Type:  evt,
 				State: StateSyncConnected,
 				Path:  op.Path,
 			}
@@ -306,9 +306,9 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 	z.s.Wait(datResp.Stat.Mzxid, p, EventNodeDataChanged)
 
 	if op.Watch {
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
-				Type:  EventNodeDataChanged,
+				Type:  evt,
 				State: StateSyncConnected,
 				Path:  op.Path,
 			}
@@ -424,7 +424,7 @@ func (z *zkEtcd) GetChildren(xid Xid, op *GetChildrenRequest) ZKResponse {
 	zxid := ZXid(children.Header.Revision)
 
 	if op.Watch {
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
 				Type:  EventNodeChildrenChanged,
 				State: StateSyncConnected,
@@ -571,9 +571,9 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 	for _, dw := range op.DataWatches {
 		dataPath := dw
 		p := mkPath(dataPath)
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
-				Type:  EventNodeDataChanged,
+				Type:  evt,
 				State: StateSyncConnected,
 				Path:  dataPath,
 			}
@@ -605,9 +605,9 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 		if len(resp.Responses[i].GetResponseRange().Kvs) == 0 {
 			ev = EventNodeCreated
 		}
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
-				Type:  ev,
+				Type:  evt,
 				State: StateSyncConnected,
 				Path:  existPath,
 			}
@@ -619,7 +619,7 @@ func (z *zkEtcd) SetWatches(xid Xid, op *SetWatchesRequest) ZKResponse {
 	for _, cw := range op.ChildWatches {
 		childPath := cw
 		p := mkPath(childPath)
-		f := func(newzxid ZXid) {
+		f := func(newzxid ZXid, evt EventType) {
 			wresp := &WatcherEvent{
 				Type:  EventNodeChildrenChanged,
 				State: StateSyncConnected,

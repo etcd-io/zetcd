@@ -223,6 +223,24 @@ func TestGetDataW(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("took too long to get data update")
 		}
+
+		_, _, ch, werr = c.GetW("/abc")
+		if werr != nil {
+			t.Fatal(werr)
+		}
+		if err := c.Delete("/abc", -1); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case ev := <-ch:
+			if ev.Path != "/abc" || ev.Type != zk.EventNodeDeleted {
+				t.Fatalf("expected /abc, got %+v", ev)
+			}
+			// {Type:EventNodeDeleted State:Unknown Path:/abc Err:<nil> Server:}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("took too long to get data update")
+		}
+
 	})
 }
 
@@ -291,9 +309,13 @@ func TestExistsW(t *testing.T) {
 				t.Fatal(err)
 			}
 			select {
-			case <-ch:
-				t.Fatalf("set data shouldn't trigger watcher")
+			case ev := <-ch:
+				if ev.Path != "/abc" || ev.Type != zk.EventNodeDataChanged {
+					t.Fatalf("expected /abc, got %+v", ev)
+				}
+				// {EventNodeDataChanged Unknown /abc <nil> }
 			case <-time.After(time.Second):
+				t.Fatalf("set data event timed out")
 			}
 		}
 

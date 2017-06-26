@@ -24,11 +24,13 @@ import (
 
 type Watches interface {
 	// Watch creates a watch request on a given path and evtype.
-	Watch(rev ZXid, xid Xid, path string, evtype EventType, cb func(ZXid))
+	Watch(rev ZXid, xid Xid, path string, evtype EventType, cb WatchHandler)
 
 	// Wait blocks until all watches that rely on the given rev are dispatched.
 	Wait(rev ZXid, path string, evtype EventType)
 }
+
+type WatchHandler func(ZXid, EventType)
 
 type watches struct {
 	mu sync.Mutex
@@ -56,31 +58,17 @@ type watch struct {
 	donec    chan struct{}
 }
 
-func (w *watch) isRelevant(ev *etcd.Event) (relevant bool) {
-	defer func() {
-		if !relevant {
-			glog.V(8).Infof("filtered watch event %+v", *ev)
-		}
-	}()
-	switch w.evtype {
-	case EventNodeDeleted:
-		if ev.Type != etcd.EventTypeDelete {
-			return
-		}
-	case EventNodeChildrenChanged:
-		if ev.Type != etcd.EventTypeDelete && !ev.IsCreate() {
-			return
-		}
-	case EventNodeDataChanged:
-		if !ev.IsModify() {
-			return
-		}
-	case EventNodeCreated:
-		if !ev.IsCreate() {
-			return
-		}
+func ev2evtype(ev *etcd.Event) EventType {
+	switch {
+	case ev.IsCreate():
+		return EventNodeCreated
+	case ev.Type == etcd.EventTypeDelete:
+		return EventNodeDeleted
+	case ev.IsModify():
+		return EventNodeDataChanged
+	default:
+		return EventNotWatching
 	}
-	return true
 }
 
 func newWatches(c *etcd.Client) *watches {
@@ -96,7 +84,7 @@ func newWatches(c *etcd.Client) *watches {
 	return ws
 }
 
-func (ws *watches) Watch(rev ZXid, xid Xid, path string, evtype EventType, cb func(ZXid)) {
+func (ws *watches) Watch(rev ZXid, xid Xid, path string, evtype EventType, cb WatchHandler) {
 	ws.mu.Lock()
 	curw := ws.path2watch[evtype][path]
 	ws.mu.Unlock()
@@ -137,7 +125,7 @@ func (ws *watches) Watch(rev ZXid, xid Xid, path string, evtype EventType, cb fu
 	go ws.runWatch(w, cb)
 }
 
-func (ws *watches) runWatch(w *watch, cb func(ZXid)) {
+func (ws *watches) runWatch(w *watch, cb WatchHandler) {
 	defer func() {
 		close(w.donec)
 		<-w.wch
@@ -148,16 +136,15 @@ func (ws *watches) runWatch(w *watch, cb func(ZXid)) {
 			if !ok {
 				return
 			}
-			for _, ev := range resp.Events {
-				if !w.isRelevant(ev) {
-					continue
-				}
-				ws.mu.Lock()
-				delete(ws.path2watch[w.evtype], w.path)
-				ws.mu.Unlock()
-				cb(ZXid(resp.Header.Revision))
-				w.cancel()
+			if len(resp.Events) == 0 {
+				continue
 			}
+			evtype := ev2evtype(resp.Events[0])
+			ws.mu.Lock()
+			delete(ws.path2watch[w.evtype], w.path)
+			ws.mu.Unlock()
+			cb(ZXid(resp.Header.Revision), evtype)
+			w.cancel()
 		case <-w.ctx.Done():
 		}
 	}
