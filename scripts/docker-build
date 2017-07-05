@@ -5,7 +5,7 @@ docker run \
     -e VERSION=$VERSION \
     -v $PWD:/go/src/github.com/coreos/zetcd:ro \
     -w /go/src/github.com/coreos/zetcd \
-    golang:1.8.0-alpine \
+    golang:1.8.3-alpine \
     /bin/sh -x -c scripts/release-binary
 
 docker cp $( cat cid ):/go/bin/zetcd bin/zetcd-release

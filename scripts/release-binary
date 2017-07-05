@@ -4,4 +4,4 @@ REPO_PATH=github.com/coreos/zetcd
 
 go build -o $GOPATH/bin/zetcd -v \
   -ldflags "-w -X $REPO_PATH/version.Version=$VERSION" \
-  $REPO_PATH
+  $REPO_PATH/cmd/zetcd
