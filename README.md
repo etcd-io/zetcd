@@ -25,6 +25,14 @@ zkctl watch / &
 zkctl create /abc "foo"
 ```
 
+### Running zetcd on Docker
+
+Official docker images of tagged zetcd releases for containerized environments are hosted at [quay.io/coreos/zetcd](https://quay.io/coreos/zetcd). Use `docker run` to launch the zetcd container with the same configuration as the `go get` example:
+
+```sh
+docker run --net host -t quay.io/coreos/zetcd -endpoints localhost:2379
+```
+
 ### Cross-checking
 
 In cross-checking mode, zetcd dynamically tests a fresh isolated "candidate" zetcd cluster against a fresh isolated ZooKeeper "oracle" cluster for divergences. This mode dispatches requests to both zetcd and ZooKeeper, then compares the responses to check for equivalence. If the responses disagree, it is flagged in the logs. Use the flags `-zkbridge` to configure a ZooKeeper endpoint and `-oracle zk` to enable checking.
