@@ -19,6 +19,7 @@ package integration
 import (
 	"archive/tar"
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -29,20 +30,41 @@ import (
 
 type Container struct {
 	dc      *docker.Client
-	name    string
 	id      string
 	attachc chan error
+	ContainerConfig
 }
 
-func NewContainer(containerName, dockerFile string, ports []string) (c *Container, err error) {
+type ContainerConfig struct {
+	name   string
+	files  []string
+	ports  []string
+	env    []string
+	writer io.Writer
+}
+
+func NewContainer(containerName, dockerFile string, ports []string) (*Container, error) {
+	cfg := ContainerConfig{
+		name:  containerName,
+		files: []string{dockerFile},
+		ports: ports,
+	}
+	return newContainerFiles(cfg)
+}
+
+func newContainerFiles(cfg ContainerConfig) (c *Container, err error) {
 	dc, err := docker.NewClient("unix://var/run/docker.sock")
 	if err != nil {
 		return nil, err
 	}
+
+	if cfg.writer == nil {
+		cfg.writer = os.Stdout
+	}
 	c = &Container{
-		dc:      dc,
-		name:    containerName,
-		attachc: make(chan error, 1),
+		dc:              dc,
+		attachc:         make(chan error, 1),
+		ContainerConfig: cfg,
 	}
 	defer func() {
 		if err != nil && c != nil {
@@ -50,17 +72,23 @@ func NewContainer(containerName, dockerFile string, ports []string) (c *Containe
 		}
 	}()
 
+	hc := &docker.HostConfig{
+		NetworkMode:     "host",
+		Privileged:      true,
+		PublishAllPorts: true,
+	}
+
 	// Kill off anything still hanging around
 	c.id, err = c.idByName()
 	if err == nil && c.id != "" {
 		c.stop()
 	}
 	// Grab fresh container
-	if c.id, err = c.build(dockerFile, ports); err != nil {
+	if c.id, err = c.build(cfg.files, cfg.ports, cfg.env); err != nil {
 		close(c.attachc)
 		return nil, err
 	}
-	if err = c.dc.StartContainer(c.id, nil); err != nil {
+	if err = c.dc.StartContainer(c.id, hc); err != nil {
 		close(c.attachc)
 		return nil, err
 	}
@@ -69,8 +97,8 @@ func NewContainer(containerName, dockerFile string, ports []string) (c *Containe
 		defer close(c.attachc)
 		aot := docker.AttachToContainerOptions{
 			Container:    c.id,
-			OutputStream: os.Stdout,
-			ErrorStream:  os.Stderr,
+			OutputStream: c.writer,
+			ErrorStream:  c.writer,
 			Logs:         true,
 			Stream:       true,
 			Stdout:       true,
@@ -82,7 +110,7 @@ func NewContainer(containerName, dockerFile string, ports []string) (c *Containe
 }
 
 func (c *Container) stop() error {
-	err := c.dc.StopContainer(c.id, 1000)
+	err := c.dc.StopContainer(c.id, 1)
 	c.dc.WaitContainer(c.id)
 	c.dc.RemoveContainer(docker.RemoveContainerOptions{ID: c.id})
 	return err
@@ -95,29 +123,40 @@ func (c *Container) Close() error {
 	return <-c.attachc
 }
 
-func (c *Container) build(dockerFile string, ports []string) (string, error) {
-	// build
-	// this is ridiculous, but client expects a remote if passed a Dockerfile;
-	// instead, gavage it with a tar over an input stream
-	inputbuf, outputbuf := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
+func buildTar(files ...string) (io.Reader, error) {
+	inputbuf := bytes.NewBuffer(nil)
 	tr := tar.NewWriter(inputbuf)
-	dat, derr := ioutil.ReadFile(dockerFile)
-	if derr != nil {
-		return "", derr
-	}
+	defer tr.Close()
 	now := time.Now()
-	tr.WriteHeader(&tar.Header{
-		Name:       "Dockerfile",
-		Size:       int64(len(dat)),
-		ModTime:    now,
-		AccessTime: now,
-		ChangeTime: now,
-	})
-	tr.Write(dat)
-	tr.Close()
+	for _, f := range files {
+		dat, derr := ioutil.ReadFile(f)
+		if derr != nil {
+			return nil, derr
+		}
+		tr.WriteHeader(&tar.Header{
+			Name:       f,
+			Size:       int64(len(dat)),
+			ModTime:    now,
+			AccessTime: now,
+			ChangeTime: now,
+		})
+		tr.Write(dat)
+	}
+	return inputbuf, nil
+}
 
+// build takes a list of files and ports, bundles the files up for docker,
+// and exposes the given ports.
+func (c *Container) build(files []string, ports []string, env []string) (string, error) {
+	inputbuf, ierr := buildTar(files...)
+	if ierr != nil {
+		return "", ierr
+	}
+
+	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
 		Name:         c.name,
+		Dockerfile:   files[0],
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
@@ -135,7 +174,7 @@ func (c *Container) build(dockerFile string, ports []string) (string, error) {
 		exposedPorts[p] = struct{}{}
 		portBindings[p] = []docker.PortBinding{
 			{
-				HostIP:   "127.0.0.1",
+				HostIP:   "0.0.0.0",
 				HostPort: port,
 			},
 		}
@@ -146,6 +185,7 @@ func (c *Container) build(dockerFile string, ports []string) (string, error) {
 		Config: &docker.Config{
 			Image:        img,
 			ExposedPorts: exposedPorts,
+			Env:          env,
 			AttachStderr: true,
 			AttachStdout: true,
 		},

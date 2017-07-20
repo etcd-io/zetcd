@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -z "$ZKCLI_INPUT" ]; then
+	exec /opt/zookeeper/bin/zkCli.sh
+fi
+/opt/zookeeper/bin/zkCli.sh ${ZKCLI_INPUT}
+echo OK
