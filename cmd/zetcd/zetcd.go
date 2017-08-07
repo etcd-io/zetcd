@@ -27,6 +27,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/zetcd"
+	"github.com/coreos/zetcd/version"
 	"github.com/coreos/zetcd/xchk"
 	"github.com/coreos/zetcd/zk"
 	"golang.org/x/net/context"
@@ -114,6 +115,8 @@ func main() {
 
 	flag.Parse()
 	fmt.Println("Running zetcd proxy")
+	fmt.Println("Version:", version.Version)
+	fmt.Println("SHA:", version.SHA)
 
 	if len(*zkaddr) == 0 {
 		fmt.Println("expected -zkaddr")
