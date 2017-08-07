@@ -3,6 +3,7 @@
 docker run \
     --cidfile=cid \
     -e VERSION=$VERSION \
+    -e SHA=$SHA \
     -v $PWD:/go/src/github.com/coreos/zetcd:ro \
     -w /go/src/github.com/coreos/zetcd \
     golang:1.8.3-alpine \

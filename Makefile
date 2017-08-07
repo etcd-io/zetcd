@@ -1,6 +1,7 @@
 export PATH := $(PWD)/bin:$(PATH)
 
 VERSION ?= $(shell ./scripts/git-version)
+SHA ?= $(shell git rev-parse HEAD)
 
 DOCKER_IMAGE = coreos/zetcd:$(VERSION)
 
@@ -8,6 +9,8 @@ $(shell mkdir -p bin)
 
 export GOBIN=$(PWD)/bin
 export PATH=$(GOBIN):$(shell printenv PATH)
+export VERSION
+export SHA
 
 release-binary:
 	./scripts/release-binary
