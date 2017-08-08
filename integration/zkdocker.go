@@ -22,8 +22,8 @@ import (
 	"time"
 )
 
-var zkContainerName = "zetcd-zk-test"
-var zkDockerFile = "../docker/zk/Dockerfile"
+var zkContainerName = "zetcd-test-zk"
+var zkDockerFile = "zk/Dockerfile"
 
 type zkDockerCluster struct {
 	zkClientAddr string
