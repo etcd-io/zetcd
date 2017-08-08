@@ -33,7 +33,7 @@ func statGetsRev(p string, rev int64) []etcd.Op {
 
 func statGets(p string) []etcd.Op { return statGetsRev(p, 0) }
 
-func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
+func statTxn(p string, txnresp *etcd.TxnResponse) (s Stat, err error) {
 	ctime := txnresp.Responses[0].GetResponseRange()
 	mtime := txnresp.Responses[1].GetResponseRange()
 	node := txnresp.Responses[2].GetResponseRange()
@@ -64,5 +64,21 @@ func statTxn(txnresp *etcd.TxnResponse) (s Stat) {
 		s.DataLength = int32(len(node.Kvs[0].Value))
 	}
 	s.NumChildren = int32(len(children.Kvs))
-	return s
+
+	if p != "/" {
+		if s.Ctime == 0 {
+			return s, ErrNoNode
+		}
+		return s, nil
+	}
+
+	// fix ups for special root node
+
+	// lie about having the quota dir so stat on "/" xchks OK
+	s.NumChildren++
+	// Cversion for root begins at -1, then 0 on first child
+	if len(cver.Kvs) == 0 {
+		s.Cversion = -1
+	}
+	return s, nil
 }

@@ -271,14 +271,20 @@ func TestSync(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
+		if ok, _, err := c.Exists("/"); err != nil || !ok {
+			t.Errorf("expected /, got err=%v, ok=%v", err, ok)
+		}
 		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
 			t.Fatal(err)
 		}
+		if ok, _, err := c.Exists("/"); err != nil || !ok {
+			t.Errorf("expected /, got err=%v, ok=%v", err, ok)
+		}
 		if ok, _, err := c.Exists("/abc"); err != nil || !ok {
-			t.Fatalf("expected it to exist %v %v", err, ok)
+			t.Errorf("expected it to exist %v %v", err, ok)
 		}
 		if ok, _, err := c.Exists("/ab"); ok {
-			t.Fatalf("expected it to not exist %v %v", err, ok)
+			t.Errorf("expected it to not exist %v %v", err, ok)
 		}
 	})
 }

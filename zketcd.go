@@ -140,9 +140,8 @@ func (z *zkEtcd) GetChildren2(xid Xid, op *GetChildren2Request) ZKResponse {
 		return mkErr(err)
 	}
 
-	resp.Stat = statTxn(txnresp)
-	if op.Path != "/" && resp.Stat.Ctime == 0 {
-		return mkZKErr(xid, ZXid(txnresp.Header.Revision), errNoNode)
+	if resp.Stat, err = statTxn(op.Path, txnresp); err != nil {
+		return apiErrToZKErr(xid, ZXid(txnresp.Header.Revision), err)
 	}
 
 	children := txnresp.Responses[5].GetResponseRange()
@@ -258,7 +257,7 @@ func (z *zkEtcd) Exists(xid Xid, op *ExistsRequest) ZKResponse {
 	}
 
 	exResp := &ExistsResponse{}
-	exResp.Stat = statTxn(txnresp)
+	exResp.Stat, err = statTxn(op.Path, txnresp)
 	zxid := ZXid(txnresp.Header.Revision)
 	z.s.Wait(exResp.Stat.Czxid, p, EventNodeCreated)
 
@@ -279,8 +278,8 @@ func (z *zkEtcd) Exists(xid Xid, op *ExistsRequest) ZKResponse {
 		z.s.Watch(zxid, xid, p, ev, f)
 	}
 
-	if exResp.Stat.Mtime == 0 {
-		return mkZKErr(xid, zxid, errNoNode)
+	if err != nil {
+		return apiErrToZKErr(xid, zxid, err)
 	}
 
 	glog.V(7).Infof("Exists(%v) = (zxid=%v, resp=%+v)", xid, zxid, *exResp)
@@ -298,9 +297,8 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 	zxid := ZXid(txnresp.Header.Revision)
 
 	datResp := &GetDataResponse{}
-	datResp.Stat = statTxn(txnresp)
-	if datResp.Stat.Mtime == 0 {
-		return mkZKErr(xid, zxid, errNoNode)
+	if datResp.Stat, err = statTxn(op.Path, txnresp); err != nil {
+		return apiErrToZKErr(xid, zxid, err)
 	}
 
 	z.s.Wait(datResp.Stat.Mzxid, p, EventNodeDataChanged)
@@ -362,7 +360,8 @@ func (z *zkEtcd) mkSetDataTxnOp(op *SetDataRequest) opBundle {
 			glog.Warningf("set data failed (%v)", err)
 			return mkZKErr(xid, zxid, errSystemError)
 		}
-		return mkZKResp(xid, zxid, &SetDataResponse{Stat: statTxn(statResp)})
+		st, _ := statTxn(op.Path, statResp)
+		return mkZKResp(xid, zxid, &SetDataResponse{Stat: st})
 	}
 
 	return opBundle{apply, reply}
@@ -382,9 +381,8 @@ func (z *zkEtcd) GetAcl(xid Xid, op *GetAclRequest) ZKResponse {
 	zxid := ZXid(txnresp.Header.Revision)
 	resps := txnresp.Responses
 	txnresp.Responses = resps[1:]
-	resp.Stat = statTxn(txnresp)
-	if resp.Stat.Ctime == 0 {
-		return mkZKErr(xid, zxid, errNoNode)
+	if resp.Stat, err = statTxn(op.Path, txnresp); err != nil {
+		return apiErrToZKErr(xid, zxid, err)
 	}
 	resp.Acl = decodeACLs(resps[0].GetResponseRange().Kvs[0].Value)
 
@@ -410,9 +408,8 @@ func (z *zkEtcd) GetChildren(xid Xid, op *GetChildrenRequest) ZKResponse {
 		return mkErr(err)
 	}
 
-	s := statTxn(txnresp)
-	if op.Path != "/" && s.Ctime == 0 {
-		return mkZKErr(xid, ZXid(txnresp.Header.Revision), errNoNode)
+	if _, err := statTxn(op.Path, txnresp); err != nil {
+		return apiErrToZKErr(xid, ZXid(txnresp.Header.Revision), err)
 	}
 
 	children := txnresp.Responses[5].GetResponseRange()
