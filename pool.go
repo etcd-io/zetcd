@@ -142,7 +142,7 @@ func (sp *etcdSessionBackend) resume(sid Sid, pwd []byte) (etcd.LeaseID, error) 
 		return 0, gerr
 	case len(gresp.Kvs) == 0:
 		return 0, fmt.Errorf("bad lease")
-	case bytes.Compare(gresp.Kvs[0].Value, pwd) != 0:
+	case !bytes.Equal(gresp.Kvs[0].Value, pwd):
 		return 0, fmt.Errorf("bad passwd")
 	}
 	return etcd.LeaseID(sid), nil
@@ -179,7 +179,7 @@ func (sb *aesSessionBackend) create(ttl int64) (etcd.LeaseID, []byte, error) {
 }
 
 func (sb *aesSessionBackend) resume(sid Sid, pwd []byte) (etcd.LeaseID, error) {
-	if bytes.Compare(sb.sid2pwd(sid), pwd) != 0 {
+	if !bytes.Equal(sb.sid2pwd(sid), pwd) {
 		return 0, fmt.Errorf("bad password")
 	}
 	return etcd.LeaseID(sid), nil
