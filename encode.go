@@ -238,6 +238,9 @@ func ReadPacket(zk net.Conn, r interface{}) (string, error) {
 	if string(buf[:4]) == flwRUOK {
 		return flwRUOK, nil
 	}
+	if err != nil {
+		return "", err
+	}
 	blen := int(binary.BigEndian.Uint32(buf[:4]))
 	if cap(buf) < blen {
 		buf = make([]byte, blen)
