@@ -541,7 +541,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err2)
 	}
 	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 	// test 2 create, 1 delete
 	ops = []interface{}{
@@ -564,7 +564,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err1)
 	}
 	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 	// test create on key that already exists
 	ops = []interface{}{
@@ -585,7 +585,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err)
 	}
 	if resp[0].String != "/create-del" || resp[1].String != "" {
-		t.Fatal("expected /create-del, ''; got %+v", resp)
+		t.Fatalf("expected /create-del, ''; got %+v", resp)
 	}
 	_, _, err = c.Get("/create-del")
 	if err == nil || err.Error() != zetcd.ErrNoNode.Error() {
@@ -619,7 +619,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err2)
 	}
 	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 	// test version missing key
 	ops = []interface{}{
@@ -647,7 +647,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err2)
 	}
 	if s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 }
 
