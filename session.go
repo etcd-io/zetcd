@@ -85,6 +85,11 @@ func newSession(c *etcd.Client, zkc Conn, id etcd.LeaseID) (*session, error) {
 
 func (s *session) Sid() Sid { return Sid(s.id) }
 
+func (s *session) Close() {
+	s.watches.close()
+	s.Conn.Close()
+}
+
 // ZXid gets the lease ZXid
 func (s *session) ZXid() ZXid {
 	s.mu.RLock()

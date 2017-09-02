@@ -31,7 +31,6 @@ var (
 	errNumChildren = fmt.Errorf("number of children mismatch")
 	errChildren    = fmt.Errorf("children paths mismatch")
 	errBadAuth     = fmt.Errorf("auth mismatch")
-	errTimeout     = fmt.Errorf("took too long to read second response")
 )
 
 type XchkError struct {
