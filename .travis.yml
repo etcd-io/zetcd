@@ -13,6 +13,11 @@ env:
   matrix:
    - TARGET=amd64
 
+before_install:
+ - go get -v -u honnef.co/go/tools/cmd/gosimple
+ - go get -v -u honnef.co/go/tools/cmd/unused
+ - go get -v -u honnef.co/go/tools/cmd/staticcheck
+ - export GOROOT=$(go env GOROOT)
 
 matrix:
   fast_finish: true
@@ -20,4 +25,5 @@ matrix:
     - go: tip
 
 script:
- - go get -t -v ./...; go test -v -race ./integration
+ - make fmt
+ - make test

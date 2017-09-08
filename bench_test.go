@@ -29,6 +29,8 @@ const (
 	zetcdAddr = "127.0.0.1:2182"
 )
 
+var acl = zk.WorldACL(zk.PermAll)
+
 func init() { zk.DefaultLogger = log.New(ioutil.Discard, "", 0) }
 
 func benchGet(b *testing.B, addr string) {

@@ -176,6 +176,9 @@ func TestCreateSequential(t *testing.T) {
 			t.Fatal(err)
 		}
 		s, err = c.Create("/abc/defg/", []byte("x"), zk.FlagSequence, acl)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if s != "/abc/defg/0000000000" {
 			t.Fatalf("got %s, expected /abc/defg/%010d", s, 0)
 		}
@@ -184,7 +187,10 @@ func TestCreateSequential(t *testing.T) {
 		}
 		// Create the next node and check the increement is +1. It should not be
 		// getting stored under /abc 's counter.
-		s, err = c.Create("/abc/defg/", []byte("x"), zk.FlagSequence, acl)
+		_, err = c.Create("/abc/defg/", []byte("x"), zk.FlagSequence, acl)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if _, _, err = c.Get("/abc/defg/0000000001"); err != nil {
 			t.Fatal(err)
 		}
@@ -378,6 +384,9 @@ func TestChildrenQuota(t *testing.T) {
 			t.Error(err)
 		}
 		children, _, err := c.Children("/")
+		if err != nil {
+			t.Fatal(err)
+		}
 		if len(children) == 1 && children[0] == "abc" {
 			t.Skipf("quota not supported yet, got %v", children)
 		}
@@ -520,8 +529,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		&zk.CreateRequest{Path: "/abc", Data: []byte("foo"), Acl: acl},
 		&zk.CreateRequest{Path: "/def", Data: []byte("bar"), Acl: acl},
 	}
-	resp, err := c.Multi(ops...)
-	if err != nil {
+	if _, err := c.Multi(ops...); err != nil {
 		t.Fatal(err)
 	}
 	_, s1, err1 := c.Get("/abc")
@@ -533,7 +541,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err2)
 	}
 	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 	// test 2 create, 1 delete
 	ops = []interface{}{
@@ -541,8 +549,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		&zk.DeleteRequest{Path: "/def"},
 		&zk.CreateRequest{Path: "/bar", Data: []byte("foo"), Acl: acl},
 	}
-	resp, err = c.Multi(ops...)
-	if err != nil {
+	if _, err := c.Multi(ops...); err != nil {
 		t.Fatal(err)
 	}
 	_, s1, err1 = c.Get("/foo")
@@ -553,18 +560,17 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatalf("expected %v, got %v", zetcd.ErrNoNode, err)
 	}
 	_, s2, err2 = c.Get("/bar")
-	if err1 != nil {
+	if err2 != nil {
 		t.Fatal(err1)
 	}
 	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 	// test create on key that already exists
 	ops = []interface{}{
 		&zk.CreateRequest{Path: "/foo", Data: []byte("foo"), Acl: acl},
 	}
-	resp, err = c.Multi(ops...)
-	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
+	if _, err := c.Multi(ops...); err == nil || err.Error() != zetcd.ErrAPIError.Error() {
 		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
 	}
 	// test create+delete on same key == no key
@@ -574,12 +580,12 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		// update foo to get version=1
 		&zk.SetDataRequest{Path: "/foo", Data: []byte("bar")},
 	}
-	resp, err = c.Multi(ops...)
+	resp, err := c.Multi(ops...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp[0].String != "/create-del" || resp[1].String != "" {
-		t.Fatal("expected /create-del, ''; got %+v", resp)
+		t.Fatalf("expected /create-del, ''; got %+v", resp)
 	}
 	_, _, err = c.Get("/create-del")
 	if err == nil || err.Error() != zetcd.ErrNoNode.Error() {
@@ -590,7 +596,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		&zk.CreateRequest{Path: "/test1", Data: []byte("foo"), Acl: acl},
 		&zk.CheckVersionRequest{Path: "/foo", Version: 2},
 	}
-	resp, err = c.Multi(ops...)
+	_, err = c.Multi(ops...)
 	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
 		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
 	}
@@ -603,8 +609,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		&zk.CreateRequest{Path: "/test1", Data: []byte("foo"), Acl: acl},
 		&zk.CreateRequest{Path: "/test2", Data: []byte("foo"), Acl: acl},
 	}
-	resp, err = c.Multi(ops...)
-	if err != nil {
+	if _, err = c.Multi(ops...); err != nil {
 		t.Fatal(err)
 	}
 	if _, s1, err1 = c.Get("/test1"); err1 != nil {
@@ -614,19 +619,17 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err2)
 	}
 	if s1.Czxid != s2.Czxid || s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 	// test version missing key
 	ops = []interface{}{
 		&zk.CheckVersionRequest{Path: "/missing-key", Version: 0},
 	}
-	resp, err = c.Multi(ops...)
-	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
+	if _, err = c.Multi(ops...); err == nil || err.Error() != zetcd.ErrAPIError.Error() {
 		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
 	}
 	// test empty operation list
-	resp, err = c.Multi()
-	if err != nil || len(resp) != 0 {
+	if resp, err = c.Multi(); err != nil || len(resp) != 0 {
 		t.Fatalf("expected empty resp, got (%+v,%v)", resp, err)
 	}
 	// test setdata if path exists
@@ -634,8 +637,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		&zk.SetDataRequest{Path: "/foo", Data: []byte("foo"), Version: -1},
 		&zk.CreateRequest{Path: "/set-txn", Data: []byte("foo"), Acl: acl},
 	}
-	resp, err = c.Multi(ops...)
-	if err != nil {
+	if _, err = c.Multi(ops...); err != nil {
 		t.Fatal(err)
 	}
 	if _, s1, err1 = c.Get("/foo"); err1 != nil {
@@ -645,7 +647,7 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		t.Fatal(err2)
 	}
 	if s1.Mzxid != s2.Mzxid {
-		t.Fatal("expected zxids in %+v to match %+v", *s1, *s2)
+		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
 }
 

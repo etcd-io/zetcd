@@ -16,10 +16,7 @@ package zetcd
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"sync"
 
@@ -35,12 +32,6 @@ type SessionPool struct {
 }
 
 func NewSessionPool(client *etcd.Client) *SessionPool {
-	/*
-		be, err := newAesSessionBackend(client)
-		if err != nil {
-			panic(err)
-		}
-	*/
 	be := &etcdSessionBackend{client}
 	return &SessionPool{
 		sessions: make(map[etcd.LeaseID]Session),
@@ -142,52 +133,10 @@ func (sp *etcdSessionBackend) resume(sid Sid, pwd []byte) (etcd.LeaseID, error) 
 		return 0, gerr
 	case len(gresp.Kvs) == 0:
 		return 0, fmt.Errorf("bad lease")
-	case bytes.Compare(gresp.Kvs[0].Value, pwd) != 0:
+	case !bytes.Equal(gresp.Kvs[0].Value, pwd):
 		return 0, fmt.Errorf("bad passwd")
 	}
 	return etcd.LeaseID(sid), nil
 }
 
 func lid2key(lid etcd.LeaseID) string { return mkPathSession(uint64(lid)) }
-
-type aesSessionBackend struct {
-	c   *etcd.Client
-	key []byte
-	b   cipher.Block
-}
-
-func newAesSessionBackend(c *etcd.Client) (sb *aesSessionBackend, err error) {
-	sb = &aesSessionBackend{c: c, key: make([]byte, 16)}
-	if _, err = rand.Read(sb.key); err != nil {
-		return nil, err
-	}
-	if sb.b, err = aes.NewCipher(sb.key); err != nil {
-		return nil, err
-	}
-	return sb, nil
-}
-
-func (sb *aesSessionBackend) create(ttl int64) (etcd.LeaseID, []byte, error) {
-	if ttl == 0 {
-		ttl = 1
-	}
-	lcr, err := sb.c.Grant(sb.c.Ctx(), ttl)
-	if err != nil {
-		return 0, nil, err
-	}
-	return lcr.ID, sb.sid2pwd(Sid(lcr.ID)), nil
-}
-
-func (sb *aesSessionBackend) resume(sid Sid, pwd []byte) (etcd.LeaseID, error) {
-	if bytes.Compare(sb.sid2pwd(sid), pwd) != 0 {
-		return 0, fmt.Errorf("bad password")
-	}
-	return etcd.LeaseID(sid), nil
-}
-
-func (sb *aesSessionBackend) sid2pwd(sid Sid) []byte {
-	dst, src := make([]byte, sb.b.BlockSize()), make([]byte, sb.b.BlockSize())
-	binary.BigEndian.PutUint64(src, uint64(sid))
-	sb.b.Encrypt(dst, src)
-	return dst
-}

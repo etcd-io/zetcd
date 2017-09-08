@@ -136,7 +136,7 @@ func main() {
 		}
 		pprofListener, err := net.Listen("tcp", *pprofAddr)
 		if err != nil {
-			fmt.Println("failed to listen on pprof address %q (%v)", *pprofAddr, err)
+			fmt.Printf("failed to listen on pprof address %q (%v)\n", *pprofAddr, err)
 		}
 		pprofServer := &http.Server{Handler: httpmux}
 		go pprofServer.Serve(pprofListener)

@@ -96,7 +96,7 @@ func (xchk *zkXchk) GetData(xid zetcd.Xid, op *zetcd.GetDataRequest) zetcd.ZKRes
 	}
 	crr, orr := cr.Resp.(*zetcd.GetDataResponse), or.Resp.(*zetcd.GetDataResponse)
 
-	if bytes.Compare(crr.Data, orr.Data) != 0 {
+	if !bytes.Equal(crr.Data, orr.Data) {
 		err = errData
 	}
 	if !xchk.xchkStat(crr.Stat, orr.Stat) {

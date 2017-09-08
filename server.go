@@ -55,15 +55,6 @@ func newHandleGlobalSerialRequests() acceptHandler {
 	}
 }
 
-func newHandleGlobalSerialSessions(ch acceptHandler) acceptHandler {
-	var mu sync.Mutex
-	return func(conn net.Conn, auth AuthFunc, zk ZKFunc) {
-		mu.Lock()
-		defer mu.Unlock()
-		ch(conn, auth, zk)
-	}
-}
-
 func handleSessionSerialRequests(conn net.Conn, auth AuthFunc, zk ZKFunc) {
 	s, zke, serr := openSession(conn, auth, zk)
 	if serr != nil {
@@ -75,34 +66,6 @@ func handleSessionSerialRequests(conn net.Conn, auth AuthFunc, zk ZKFunc) {
 		if err := serveRequest(s, zke, zkreq); err != nil {
 			return
 		}
-	}
-}
-
-func handleSessionConcurrentRequests(conn net.Conn, auth AuthFunc, zk ZKFunc) {
-	s, zke, serr := openSession(conn, auth, zk)
-	if serr != nil {
-		return
-	}
-	defer s.Close()
-	var wg sync.WaitGroup
-	wg.Add(1)
-	glog.V(9).Infof("serving concurrent session requests on id=%x", s.Sid())
-	for zkreq := range s.Read() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := serveRequest(s, zke, zkreq); err != nil {
-				return
-			}
-		}()
-	}
-	wg.Wait()
-}
-
-func newHandleLogClose(ch acceptHandler) acceptHandler {
-	return func(conn net.Conn, auth AuthFunc, zk ZKFunc) {
-		glog.V(6).Infof("closing remote connection %q", conn.RemoteAddr())
-		ch(conn, auth, zk)
 	}
 }
 
@@ -153,3 +116,45 @@ func serveByHandler(h acceptHandler, ctx context.Context, ln net.Listener, auth 
 		}
 	}
 }
+
+/*
+
+Special session handlers for debugging and future reference:
+
+func newHandleGlobalSerialSessions(ch acceptHandler) acceptHandler {
+	var mu sync.Mutex
+	return func(conn net.Conn, auth AuthFunc, zk ZKFunc) {
+		mu.Lock()
+		defer mu.Unlock()
+		ch(conn, auth, zk)
+	}
+}
+
+func handleSessionConcurrentRequests(conn net.Conn, auth AuthFunc, zk ZKFunc) {
+	s, zke, serr := openSession(conn, auth, zk)
+	if serr != nil {
+		return
+	}
+	defer s.Close()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	glog.V(9).Infof("serving concurrent session requests on id=%x", s.Sid())
+	for zkreq := range s.Read() {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := serveRequest(s, zke, zkreq); err != nil {
+				return
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func newHandleLogClose(ch acceptHandler) acceptHandler {
+	return func(conn net.Conn, auth AuthFunc, zk ZKFunc) {
+		glog.V(6).Infof("closing remote connection %q", conn.RemoteAddr())
+		ch(conn, auth, zk)
+	}
+}
+*/
