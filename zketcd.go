@@ -324,7 +324,17 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 		}
 		z.s.Watch(zxid, xid, p, EventNodeDataChanged, f)
 	}
-	datResp.Data = []byte(txnresp.Responses[2].GetResponseRange().Kvs[0].Value)
+
+	value := []byte{}
+	for idx, element := range txnresp.Responses {
+		kvs := element.GetResponseRange().Kvs
+		glog.V(7).Infof("GetData(%v) = (zxid=%v, idx=%v, resps=%+v)", xid, zxid, idx,
+			len(kvs))
+		if (len(kvs) > 0) && (len(kvs[0].Value) > 0) {
+			value = []byte(kvs[0].Value)
+		}
+	}
+	datResp.Data = value
 
 	glog.V(7).Infof("GetData(%v) = (zxid=%v, resp=%+v)", xid, zxid, *datResp)
 	return mkZKResp(xid, zxid, datResp)
