@@ -324,7 +324,11 @@ func (z *zkEtcd) GetData(xid Xid, op *GetDataRequest) ZKResponse {
 		}
 		z.s.Watch(zxid, xid, p, EventNodeDataChanged, f)
 	}
-	datResp.Data = []byte(txnresp.Responses[2].GetResponseRange().Kvs[0].Value)
+
+	// Root directory has no data.
+	if p != rootPath {
+		datResp.Data = []byte(txnresp.Responses[2].GetResponseRange().Kvs[0].Value)
+	}
 
 	glog.V(7).Infof("GetData(%v) = (zxid=%v, resp=%+v)", xid, zxid, *datResp)
 	return mkZKResp(xid, zxid, datResp)
