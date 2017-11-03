@@ -28,6 +28,14 @@ var (
 	acl = zk.WorldACL(zk.PermAll)
 )
 
+func TestGetRoot(t *testing.T) {
+	runTest(t, func(t *testing.T, c *zk.Conn) {
+		if _, _, err := c.Get("/"); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestDirStat(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
 		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
