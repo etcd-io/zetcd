@@ -36,6 +36,54 @@ func TestGetRoot(t *testing.T) {
 	})
 }
 
+func TestEphemeral(t *testing.T) {
+	zkclus := newZKCluster(t)
+	defer zkclus.Close(t)
+
+	c, _, err := zk.Connect([]string{zkclus.Addr()}, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Use closure to capture c because it's overwritten with a new connection later.
+	defer func() { c.Close() }()
+
+	if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Create("/abc/def", []byte(""), zk.FlagEphemeral, acl); err != nil {
+		t.Fatal(err)
+	}
+	// Confirm there's an ephemeral owner after updating an ephemeral node.
+	if _, err := c.Set("/abc/def", []byte("123"), -1); err != nil {
+		t.Fatal(err)
+	}
+	_, s, err := c.Get("/abc/def")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.EphemeralOwner == 0 {
+		t.Fatal("expected ephemeral owner")
+	}
+
+	// Confirm parent directory can be deleted after session expiration.
+	c.Close()
+	time.Sleep(3 * time.Second)
+	c, _, err = zk.Connect([]string{zkclus.Addr()}, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, _, cerr := c.Children("/abc")
+	if cerr != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("expected no keys in /abc, got %v", keys)
+	}
+	if err := c.Delete("/abc", -1); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDirStat(t *testing.T) {
 	runTest(t, func(t *testing.T, c *zk.Conn) {
 		if _, err := c.Create("/abc", []byte(""), 0, acl); err != nil {
