@@ -101,7 +101,7 @@ func lsCommandFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		exitOn(err)
 	}
-	sort.Sort(sort.StringSlice(children))
+	sort.Strings(children)
 	fmt.Println("Children:")
 	for _, c := range children {
 		fmt.Printf("%s (%s)\n", path.Clean(dir+"/"+c), c)
