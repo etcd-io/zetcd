@@ -213,13 +213,15 @@ func (z *zkEtcd) mkDeleteTxnOp(op *DeleteRequest) opBundle {
 			}
 		}
 
-		crev := s.Rev(mkPathCVer(p))
+		// Force CVer into read-set to catch any conflicting update
+		// which would invalidate emptiness check.
+		s.Rev(mkPathCVer(p))
+		// Check if directory has any children.
 		gresp, gerr := z.c.Get(z.c.Ctx(), getListPfx(p),
 			// TODO: monotonic revisions from serializable
 			// etcd.WithSerializable(),
 			etcd.WithPrefix(),
 			etcd.WithCountOnly(),
-			etcd.WithRev(crev),
 			etcd.WithLimit(1))
 		if gerr != nil {
 			return gerr
@@ -360,9 +362,9 @@ func (z *zkEtcd) mkSetDataTxnOp(op *SetDataRequest) opBundle {
 			return ErrBadVersion
 
 		}
-		s.Put(mkPathKey(p), string(op.Data))
-		s.Put(mkPathVer(p), string(encodeInt64(int64(currentVersion+1))))
-		s.Put(mkPathMTime(p), encodeTime())
+		s.Put(mkPathKey(p), string(op.Data), etcd.WithIgnoreLease())
+		s.Put(mkPathVer(p), string(encodeInt64(int64(currentVersion+1))), etcd.WithIgnoreLease())
+		s.Put(mkPathMTime(p), encodeTime(), etcd.WithIgnoreLease())
 		return nil
 	}
 
