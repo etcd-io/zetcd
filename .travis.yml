@@ -5,11 +5,8 @@ sudo: false
 
 go:
   - 1.10.2
-  - tip
 
 env:
-  global:
-   - GO15VENDOREXPERIMENT=1
   matrix:
    - TARGET=amd64
 
@@ -21,8 +18,6 @@ before_install:
 
 matrix:
   fast_finish: true
-  allow_failures:
-    - go: tip
 
 script:
  - make fmt
