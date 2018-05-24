@@ -10,5 +10,6 @@ docker run \
     /bin/sh -x -c scripts/release-binary
 
 docker cp $( cat cid ):/go/bin/zetcd bin/zetcd-release
+docker cp $( cat cid ):/go/bin/zkctl bin/zkctl-release
 docker rm $( cat cid )
 rm cid
