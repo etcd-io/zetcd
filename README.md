@@ -1,6 +1,6 @@
 # zetcd
 
-[![Build Status](https://travis-ci.org/etcd-io/zetcd.svg?branch=master)](https://travis-ci.org/etcd-io/zetcd)
+[![Build Status](https://travis-ci.com/etcd-io/zetcd.svg?branch=master)](https://travis-ci.com/etcd-io/zetcd)
 
 A ZooKeeper "personality" for etcd. Point a ZooKeeper client at zetcd to dispatch the operations on an etcd cluster.
 
