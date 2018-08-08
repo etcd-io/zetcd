@@ -1,6 +1,6 @@
 dist: trusty
 language: go
-go_import_path: github.com/coreos/zetcd
+go_import_path: github.com/etcd-io/zetcd
 sudo: false
 
 go:

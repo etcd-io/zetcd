@@ -1,6 +1,6 @@
 #!/bin/sh
 
-REPO_PATH=github.com/coreos/zetcd
+REPO_PATH=github.com/etcd-io/zetcd
 
 go build -o $GOPATH/bin/zetcd -v \
   -ldflags "-w -X $REPO_PATH/version.Version=$VERSION -X $REPO_PATH/version.SHA=$SHA" \

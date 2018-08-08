@@ -17,7 +17,7 @@ package xchk
 import (
 	"fmt"
 
-	"github.com/coreos/zetcd"
+	"github.com/etcd-io/zetcd"
 )
 
 var (

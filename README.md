@@ -1,6 +1,6 @@
 # zetcd
 
-[![Build Status](https://travis-ci.org/coreos/zetcd.svg?branch=master)](https://travis-ci.org/coreos/zetcd)
+[![Build Status](https://travis-ci.org/etcd-io/zetcd.svg?branch=master)](https://travis-ci.org/etcd-io/zetcd)
 
 A ZooKeeper "personality" for etcd. Point a ZooKeeper client at zetcd to dispatch the operations on an etcd cluster.
 
@@ -13,24 +13,24 @@ Protocol encoding and decoding heavily based on [go-zookeeper](http://github.com
 Forward ZooKeeper requests on `:2181` to an etcd server listening on `localhost:2379`:
 
 ```sh
-go get github.com/coreos/zetcd/cmd/zetcd
+go get github.com/etcd-io/zetcd/cmd/zetcd
 zetcd --zkaddr 0.0.0.0:2181 --endpoints localhost:2379
 ```
 
 Simple testing with `zkctl`:
 
 ```sh
-go get github.com/coreos/zetcd/cmd/zkctl
+go get github.com/etcd-io/zetcd/cmd/zkctl
 zkctl watch / &
 zkctl create /abc "foo"
 ```
 
 ### Running zetcd on Docker
 
-Official docker images of tagged zetcd releases for containerized environments are hosted at [quay.io/coreos/zetcd](https://quay.io/coreos/zetcd). Use `docker run` to launch the zetcd container with the same configuration as the `go get` example:
+Official docker images of tagged zetcd releases for containerized environments are hosted at [quay.io/etcd-io/zetcd](https://quay.io/etcd-io/zetcd). Use `docker run` to launch the zetcd container with the same configuration as the `go get` example:
 
 ```sh
-docker run --net host -t quay.io/coreos/zetcd -endpoints localhost:2379
+docker run --net host -t quay.io/etcd-io/zetcd -endpoints localhost:2379
 ```
 
 ### Cross-checking
@@ -47,7 +47,7 @@ zetcd --zkaddr 0.0.0.0:2181 --endpoints localhost:2379 --debug-zkbridge localhos
 
 - Mailing list: [etcd-dev](https://groups.google.com/forum/?hl=en#!forum/etcd-dev)
 - IRC: #[etcd](irc://irc.freenode.org:6667/#etcd) on freenode.org
-- Bugs: [issues](https://github.com/coreos/zetcd/issues)
+- Bugs: [issues](https://github.com/etcd-io/zetcd/issues)
 
 ## Contributing
 

@@ -15,7 +15,7 @@
 package zk
 
 import (
-	"github.com/coreos/zetcd"
+	"github.com/etcd-io/zetcd"
 )
 
 func NewAuth(addrs []string) zetcd.AuthFunc {

@@ -26,10 +26,10 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/pkg/transport"
-	"github.com/coreos/zetcd"
-	"github.com/coreos/zetcd/version"
-	"github.com/coreos/zetcd/xchk"
-	"github.com/coreos/zetcd/zk"
+	"github.com/etcd-io/zetcd"
+	"github.com/etcd-io/zetcd/version"
+	"github.com/etcd-io/zetcd/xchk"
+	"github.com/etcd-io/zetcd/zk"
 	"golang.org/x/net/context"
 )
 

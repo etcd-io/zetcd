@@ -4,7 +4,7 @@ VERSION ?= $(shell ./scripts/git-version)
 SHA ?= $(shell git rev-parse HEAD)
 
 DOCKER_IMAGE_GCR = gcr.io/etcd-development/zetcd:$(VERSION)
-DOCKER_IMAGE_QUAY = quay.io/coreos/zetcd:$(VERSION)
+DOCKER_IMAGE_QUAY = quay.io/etcd-io/zetcd:$(VERSION)
 
 $(shell mkdir -p bin)
 

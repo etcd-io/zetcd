@@ -1,4 +1,4 @@
-package: github.com/coreos/zetcd
+package: github.com/etcd-io/zetcd
 excludeDirs:
 - integration
 import:
