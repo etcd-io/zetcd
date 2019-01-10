@@ -43,13 +43,15 @@ func statTxn(p string, txnresp *etcd.TxnResponse) (s Stat, err error) {
 
 	// XXX hack: need to format zk / node instead of this garbage
 	if len(ctime.Kvs) != 0 {
-		s.Ctime = decodeInt64(ctime.Kvs[0].Value)
+		// Ctime is stored in microseconds
+		s.Ctime = decodeInt64(ctime.Kvs[0].Value) / 1000
 		s.Czxid = rev2zxid(ctime.Kvs[0].ModRevision)
 		s.Pzxid = s.Czxid
 	}
 	if len(mtime.Kvs) != 0 {
 		s.Mzxid = rev2zxid(mtime.Kvs[0].ModRevision)
-		s.Mtime = decodeInt64(mtime.Kvs[0].Value)
+		// Mtime is stored in microseconds
+		s.Mtime = decodeInt64(mtime.Kvs[0].Value) / 1000
 		s.Version = Ver(mtime.Kvs[0].Version - 1)
 	}
 	if len(cver.Kvs) != 0 {
