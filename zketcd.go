@@ -536,7 +536,6 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 		return reply(xid, zxid)
 	}
 
-	fmt.Printf("Multi(%v) = (zxid=%v); txnresp: %+v\n", *mreq, resp.Header.Revision, *resp)
 	return reply(xid, ZXid(resp.Header.Revision))
 }
 
