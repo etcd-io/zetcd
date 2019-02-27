@@ -524,7 +524,7 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 				mresp.Ops[i].Stat = &r.Stat
 			}
 		}
-		return mkZKResp(xid, zxid, mresp)
+		return mkZKPartialResp(xid, zxid, mresp, mresp.DoneHeader.Err)
 	}
 
 	resp, _ := z.doSTM(apply, prefetch...)
@@ -726,6 +726,10 @@ func mkZKErr(xid Xid, zxid ZXid, err ErrCode) ZKResponse {
 
 func mkZKResp(xid Xid, zxid ZXid, resp interface{}) ZKResponse {
 	return ZKResponse{Hdr: &ResponseHeader{xid, zxid - 1, 0}, Resp: resp}
+}
+
+func mkZKPartialResp(xid Xid, zxid ZXid, resp interface{}, err ErrCode) ZKResponse {
+	return ZKResponse{Hdr: &ResponseHeader{xid, zxid - 1, err}, Resp: resp}
 }
 
 // wrapErr is to pass back error info but still get the txn response
