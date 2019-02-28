@@ -329,6 +329,8 @@ func (r *MultiResponse) Encode(buf []byte) (int, error) {
 			n, err = encodePacketValue(buf[total:], reflect.ValueOf(op.String))
 		case opSetData:
 			n, err = encodePacketValue(buf[total:], reflect.ValueOf(op.Stat))
+		case opError:
+			n, err = encodePacketValue(buf[total:], reflect.ValueOf(&op.Header.Err))
 		}
 		total += n
 		if err != nil {

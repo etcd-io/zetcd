@@ -705,6 +705,23 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 	if s1.Mzxid != s2.Mzxid {
 		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
 	}
+	// test partial success
+	ops = []interface{}{
+		&zk.CheckVersionRequest{Path: "/test2", Version: 0},
+		&zk.CreateRequest{Path: "/foo", Data: []byte("foo"), Acl: acl},
+	}
+	if resp, err = c.Multi(ops...); err == nil || err.Error() != zetcd.ErrNodeExists.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrNodeExists, err)
+	}
+	if len(resp) != 2 {
+		t.Fatalf("expected %d results, got %d", 2, len(resp))
+	}
+	if resp[0].Error != nil {
+		t.Fatalf("expected checkop error to be nil, got %v", resp[0].Error)
+	}
+	if resp[1].Error == nil || resp[1].Error.Error() != zetcd.ErrNodeExists.Error() {
+		t.Fatalf("expected createop error to be %v, got %v", zetcd.ErrNodeExists.Error(), resp[1].Error)
+	}
 }
 
 func runTest(t *testing.T, f func(*testing.T, *zk.Conn)) {

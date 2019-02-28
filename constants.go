@@ -23,6 +23,7 @@ const (
 )
 
 const (
+	opError        = -1
 	opCreate       = 1
 	opDelete       = 2
 	opExists       = 3

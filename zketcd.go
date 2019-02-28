@@ -502,11 +502,9 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 		for i, b := range bs {
 			if err := b.apply(s); err != nil {
 				var ok bool
+				mresp.Ops[i].Header.Type = opError
 				if mresp.Ops[i].Header.Err, ok = errorToErrCode[err]; !ok {
 					mresp.Ops[i].Header.Err = errAPIError
-				}
-				if mresp.DoneHeader.Err == 0 {
-					mresp.DoneHeader.Err = mresp.Ops[i].Header.Err
 				}
 				return err
 			}
@@ -524,7 +522,7 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 				mresp.Ops[i].Stat = &r.Stat
 			}
 		}
-		return mkZKPartialResp(xid, zxid, mresp, mresp.DoneHeader.Err)
+		return mkZKResp(xid, zxid, mresp)
 	}
 
 	resp, _ := z.doSTM(apply, prefetch...)
@@ -536,6 +534,7 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 		return reply(xid, zxid)
 	}
 
+	glog.V(7).Infof("Multi(%v) = (zxid=%v); txnresp: %+v\n", *mreq, resp.Header.Revision, *resp)
 	return reply(xid, ZXid(resp.Header.Revision))
 }
 
@@ -726,10 +725,6 @@ func mkZKErr(xid Xid, zxid ZXid, err ErrCode) ZKResponse {
 
 func mkZKResp(xid Xid, zxid ZXid, resp interface{}) ZKResponse {
 	return ZKResponse{Hdr: &ResponseHeader{xid, zxid - 1, 0}, Resp: resp}
-}
-
-func mkZKPartialResp(xid Xid, zxid ZXid, resp interface{}, err ErrCode) ZKResponse {
-	return ZKResponse{Hdr: &ResponseHeader{xid, zxid - 1, err}, Resp: resp}
 }
 
 // wrapErr is to pass back error info but still get the txn response
