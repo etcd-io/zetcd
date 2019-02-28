@@ -486,8 +486,8 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 			bs[i] = z.mkSetDataTxnOp(req)
 			mresp.Ops[i].Header.Type = opSetData
 		case *CheckVersionRequest:
-			mresp.Ops[i].Header.Type = opCheck
 			bs[i] = z.mkCheckVersionPathTxnOp(req)
+			mresp.Ops[i].Header.Type = opCheck
 		default:
 			panic(fmt.Sprintf("unknown multi %+v %T", op.Op, op.Op))
 		}
