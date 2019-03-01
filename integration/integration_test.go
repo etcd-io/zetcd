@@ -15,7 +15,6 @@
 package integration
 
 import (
-	"net"
 	"testing"
 	"time"
 
@@ -555,26 +554,6 @@ func TestCreateInvalidPath(t *testing.T) {
 			t.Errorf("got err %v, wanted %v", err, werr)
 		}
 	})
-}
-
-func TestRUOK(t *testing.T) {
-	zkclus := newZKCluster(t)
-	defer zkclus.Close(t)
-
-	conn, err := net.Dial("tcp", zkclus.Addr())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := conn.Write([]byte("ruok")); err != nil {
-		t.Fatal(err)
-	}
-	buf := make([]byte, 4)
-	if _, err := conn.Read(buf); err != nil {
-		t.Fatal(err)
-	}
-	if string(buf) != "imok" {
-		t.Fatalf(`expected "imok", got %q`, string(buf))
-	}
 }
 
 func TestMultiOp(t *testing.T) { runTest(t, testMultiOp) }
