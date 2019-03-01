@@ -474,6 +474,13 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 		Ops:        make([]MultiResponseOp, len(mreq.Ops)),
 		DoneHeader: MultiHeader{Type: opMulti},
 	}
+	if len(mreq.Ops) == 0 {
+		zxid, zerr := z.incrementAndGetZxid()
+		if zerr != nil {
+			return mkErr(zerr)
+		}
+		return mkZKResp(xid, zxid, mresp)
+	}
 	for i, op := range mreq.Ops {
 		switch req := op.Op.(type) {
 		case *CreateRequest:
