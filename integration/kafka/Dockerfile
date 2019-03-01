@@ -16,4 +16,5 @@ EXPOSE 9092
 
 COPY kafka/ /kafka/config/
 ADD kafka/run.sh /kafka/run.sh
+RUN chmod uga+x /kafka/run.sh
 ENTRYPOINT [ "/bin/bash", "/kafka/run.sh" ]
