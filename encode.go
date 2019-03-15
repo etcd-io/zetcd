@@ -274,7 +274,7 @@ func (r *MultiRequest) Encode(buf []byte) (int, error) {
 		}
 		total += n
 	}
-	r.DoneHeader.Done = true
+	r.DoneHeader = MultiHeader{-1, true, -1}
 	n, err := encodePacketValue(buf[total:], reflect.ValueOf(r.DoneHeader))
 	if err != nil {
 		return total, err
@@ -337,7 +337,7 @@ func (r *MultiResponse) Encode(buf []byte) (int, error) {
 			return total, err
 		}
 	}
-	r.DoneHeader.Done = true
+	r.DoneHeader = MultiHeader{-1, true, -1}
 	n, err := encodePacketValue(buf[total:], reflect.ValueOf(r.DoneHeader))
 	if err != nil {
 		return total, err
