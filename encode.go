@@ -329,6 +329,8 @@ func (r *MultiResponse) Encode(buf []byte) (int, error) {
 			n, err = encodePacketValue(buf[total:], reflect.ValueOf(op.String))
 		case opSetData:
 			n, err = encodePacketValue(buf[total:], reflect.ValueOf(op.Stat))
+		case opError:
+			n, err = encodePacketValue(buf[total:], reflect.ValueOf(&op.Header.Err))
 		}
 		total += n
 		if err != nil {
@@ -371,6 +373,8 @@ func (r *MultiResponse) Decode(buf []byte) (int, error) {
 			res.Stat = new(Stat)
 			w = reflect.ValueOf(res.Stat)
 		case opCheck, opDelete:
+		case opError:
+			w = reflect.ValueOf(&res.Header.Err)
 		}
 		if w.IsValid() {
 			n, err := decodePacketValue(buf[total:], w)

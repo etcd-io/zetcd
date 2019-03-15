@@ -53,7 +53,7 @@ func NewContainer(containerName, dockerFile string, ports []string) (*Container,
 }
 
 func newContainerFiles(cfg ContainerConfig) (c *Container, err error) {
-	dc, err := docker.NewClient("unix://var/run/docker.sock")
+	dc, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		return nil, err
 	}
