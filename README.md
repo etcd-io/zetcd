@@ -27,10 +27,10 @@ zkctl create /abc "foo"
 
 ### Running zetcd on Docker
 
-Official docker images of tagged zetcd releases for containerized environments are hosted at [quay.io/etcd-io/zetcd](https://quay.io/etcd-io/zetcd). Use `docker run` to launch the zetcd container with the same configuration as the `go get` example:
+Official docker images of tagged zetcd releases for containerized environments are hosted at [quay.io/coreos/zetcd](https://quay.io/coreos/zetcd). Use `docker run` to launch the zetcd container with the same configuration as the `go get` example:
 
 ```sh
-docker run --net host -t quay.io/etcd-io/zetcd -endpoints localhost:2379
+docker run --net host -t quay.io/coreos/zetcd -endpoints localhost:2379
 ```
 
 ### Cross-checking
