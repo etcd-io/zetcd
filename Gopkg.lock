@@ -29,6 +29,17 @@
   version = "v0.0.5"
 
 [[projects]]
+  digest = "1:bfb3e92917c7a2666bcffc12064249531f62bfd8b87e8cb9f516096436e45621"
+  name = "github.com/etcd-io/etcd"
+  packages = [
+    "clientv3",
+    "clientv3/concurrency",
+  ]
+  pruneopts = "UT"
+  revision = "98d308426819d892e149fe45f6fd542464cb1f9d"
+  version = "v3.3.13"
+
+[[projects]]
   digest = "1:4c902bd4ab644a4282d8557343ba90f26c486ac66d2096380eceb3ab46244b2e"
   name = "github.com/etcd-io/zetcd"
   packages = [
@@ -220,9 +231,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/coreos/etcd/clientv3",
-    "github.com/coreos/etcd/clientv3/concurrency",
     "github.com/coreos/etcd/pkg/report",
     "github.com/coreos/etcd/pkg/transport",
+    "github.com/etcd-io/etcd/clientv3",
+    "github.com/etcd-io/etcd/clientv3/concurrency",
     "github.com/etcd-io/zetcd",
     "github.com/etcd-io/zetcd/version",
     "github.com/etcd-io/zetcd/xchk",

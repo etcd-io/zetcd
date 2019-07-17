@@ -28,6 +28,10 @@ ignored = ["github.com/lucidworks/zetcd/integration"]
 
 [[constraint]]
   name = "github.com/coreos/etcd"
+  version = "3.3.13"
+
+[[constraint]]
+  name = "github.com/etcd-io/etcd"
   version = "3.2.6"
 
 [[constraint]]
