@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	v3sync "github.com/coreos/etcd/clientv3/concurrency"
+	etcd "github.com/etcd-io/etcd/clientv3"
+	v3sync "github.com/etcd-io/etcd/clientv3/concurrency"
 	"github.com/golang/glog"
 )
 

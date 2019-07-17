@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "github.com/etcd-io/etcd/clientv3"
 	"github.com/golang/glog"
 )
 
