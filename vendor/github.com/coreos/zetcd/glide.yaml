@@ -1,0 +1,16 @@
+package: github.com/coreos/zetcd
+excludeDirs:
+- integration
+import:
+- package: github.com/coreos/etcd
+  version: v3.2.6
+  subpackages:
+  - clientv3
+- package: google.golang.org/grpc
+  version: v1.2.1
+- package: github.com/samuel/go-zookeeper
+  version: e6b59f6144beb8570562539c1898a0b1fea34b41
+- package: github.com/spf13/cobra
+  version: 1c44ec8d3f1552cac48999f9306da23c4d8a288b
+- package: github.com/spf13/pflag
+  version: 1.0.0
