@@ -3,11 +3,11 @@ excludeDirs:
 - integration
 import:
 - package: github.com/coreos/etcd
-  version: v3.2.6
+  version: v3.3.13
   subpackages:
   - clientv3
 - package: google.golang.org/grpc
-  version: v1.2.1
+  version: v1.7.5
 - package: github.com/samuel/go-zookeeper
   version: e6b59f6144beb8570562539c1898a0b1fea34b41
 - package: github.com/spf13/cobra
