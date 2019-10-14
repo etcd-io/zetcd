@@ -88,6 +88,7 @@ func (s *session) Sid() Sid { return Sid(s.id) }
 func (s *session) Close() {
 	s.watches.close()
 	s.Conn.Close()
+	s.c.Revoke(s.c.Ctx(), s.id)
 }
 
 // ZXid gets the lease ZXid
