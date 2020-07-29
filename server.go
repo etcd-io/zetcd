@@ -76,7 +76,7 @@ func serveRequest(s Session, zke ZK, zkreq ZKRequest) error {
 	}
 	zkresp := DispatchZK(zke, zkreq.xid, zkreq.req)
 	if zkresp.Err != nil {
-		glog.V(9).Infof("dispatch error", zkresp.Err)
+		glog.V(9).Infof("dispatch error=%v", zkresp.Err)
 		return zkresp.Err
 	}
 	if zkresp.Hdr.Err == 0 {
