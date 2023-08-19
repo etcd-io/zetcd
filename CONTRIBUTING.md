@@ -15,8 +15,8 @@ contribution. See the [DCO](DCO) file for details.
 # Email and Chat
 
 The project currently uses the general etcd email list and IRC channel:
-- Email: [coreos-dev](https://groups.google.com/forum/#!forum/etcd-dev)
-- IRC: #[coreos](irc://irc.freenode.org:6667/#etcd) IRC channel on freenode.org
+- Email: [etcd-dev](https://groups.google.com/g/etcd-dev)
+- IRC: #[etcd](irc://irc.freenode.org:6667/#etcd) IRC channel on freenode.org
 
 Please avoid emailing maintainers found in the MAINTAINERS file directly. They
 are very busy and read the mailing lists.
