@@ -14,9 +14,9 @@ contribution. See the [DCO](DCO) file for details.
 
 # Email and Chat
 
-The project currently uses the general etcd email list and IRC channel:
+The project currently uses the general etcd email list and Slack channel:
 - Email: [etcd-dev](https://groups.google.com/g/etcd-dev)
-- IRC: #[etcd](irc://irc.freenode.org:6667/#etcd) IRC channel on freenode.org
+- Slack: [#etcd](https://kubernetes.slack.com/messages/C3HD8ARJ5/details/) channel on Kubernetes ([get an invite](http://slack.kubernetes.io/))
 
 Please avoid emailing maintainers found in the MAINTAINERS file directly. They
 are very busy and read the mailing lists.

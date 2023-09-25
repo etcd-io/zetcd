@@ -46,7 +46,7 @@ zetcd --zkaddr 0.0.0.0:2181 --endpoints localhost:2379 --debug-zkbridge localhos
 ## Contact
 
 - Mailing list: [etcd-dev](https://groups.google.com/g/etcd-dev)
-- IRC: #[etcd](irc://irc.freenode.org:6667/#etcd) on freenode.org
+- Slack: [#etcd](https://kubernetes.slack.com/messages/C3HD8ARJ5/details/) channel on Kubernetes ([get an invite](http://slack.kubernetes.io/))
 - Bugs: [issues](https://github.com/etcd-io/zetcd/issues)
 
 ## Contributing
