@@ -16,7 +16,7 @@ package zetcd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"testing"
 	"time"
@@ -31,7 +31,7 @@ const (
 
 var acl = zk.WorldACL(zk.PermAll)
 
-func init() { zk.DefaultLogger = log.New(ioutil.Discard, "", 0) }
+func init() { zk.DefaultLogger = log.New(io.Discard, "", 0) }
 
 func benchGet(b *testing.B, addr string) {
 	c, _, err := zk.Connect([]string{addr}, time.Second)
