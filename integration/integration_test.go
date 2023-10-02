@@ -15,7 +15,6 @@
 package integration
 
 import (
-	"net"
 	"testing"
 	"time"
 
@@ -557,26 +556,6 @@ func TestCreateInvalidPath(t *testing.T) {
 	})
 }
 
-func TestRUOK(t *testing.T) {
-	zkclus := newZKCluster(t)
-	defer zkclus.Close(t)
-
-	conn, err := net.Dial("tcp", zkclus.Addr())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := conn.Write([]byte("ruok")); err != nil {
-		t.Fatal(err)
-	}
-	buf := make([]byte, 4)
-	if _, err := conn.Read(buf); err != nil {
-		t.Fatal(err)
-	}
-	if string(buf) != "imok" {
-		t.Fatalf(`expected "imok", got %q`, string(buf))
-	}
-}
-
 func TestMultiOp(t *testing.T) { runTest(t, testMultiOp) }
 
 func testMultiOp(t *testing.T, c *zk.Conn) {
@@ -626,8 +605,8 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 	ops = []interface{}{
 		&zk.CreateRequest{Path: "/foo", Data: []byte("foo"), Acl: acl},
 	}
-	if _, err := c.Multi(ops...); err == nil || err.Error() != zetcd.ErrAPIError.Error() {
-		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
+	if _, err := c.Multi(ops...); err == nil || err.Error() != zetcd.ErrNodeExists.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrNodeExists, err)
 	}
 	// test create+delete on same key == no key
 	ops = []interface{}{
@@ -653,8 +632,8 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 		&zk.CheckVersionRequest{Path: "/foo", Version: 2},
 	}
 	_, err = c.Multi(ops...)
-	if err == nil || err.Error() != zetcd.ErrAPIError.Error() {
-		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
+	if err == nil || err.Error() != zetcd.ErrBadVersion.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrBadVersion, err)
 	}
 	if _, s1, err = c.Get("/test1"); err == nil || err.Error() != zetcd.ErrNoNode.Error() {
 		t.Fatalf("expected %v, got (%v,%v)", zetcd.ErrNoNode, s1, err)
@@ -681,8 +660,8 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 	ops = []interface{}{
 		&zk.CheckVersionRequest{Path: "/missing-key", Version: 0},
 	}
-	if _, err = c.Multi(ops...); err == nil || err.Error() != zetcd.ErrAPIError.Error() {
-		t.Fatalf("expected %v, got %v", zetcd.ErrAPIError, err)
+	if _, err = c.Multi(ops...); err == nil || err.Error() != zetcd.ErrNoNode.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrNoNode, err)
 	}
 	// test empty operation list
 	if resp, err = c.Multi(); err != nil || len(resp) != 0 {
@@ -704,6 +683,23 @@ func testMultiOp(t *testing.T, c *zk.Conn) {
 	}
 	if s1.Mzxid != s2.Mzxid {
 		t.Fatalf("expected zxids in %+v to match %+v", *s1, *s2)
+	}
+	// test partial success
+	ops = []interface{}{
+		&zk.CheckVersionRequest{Path: "/test2", Version: 0},
+		&zk.CreateRequest{Path: "/foo", Data: []byte("foo"), Acl: acl},
+	}
+	if resp, err = c.Multi(ops...); err == nil || err.Error() != zetcd.ErrNodeExists.Error() {
+		t.Fatalf("expected %v, got %v", zetcd.ErrNodeExists, err)
+	}
+	if len(resp) != 2 {
+		t.Fatalf("expected %d results, got %d", 2, len(resp))
+	}
+	if resp[0].Error != nil {
+		t.Fatalf("expected checkop error to be nil, got %v", resp[0].Error)
+	}
+	if resp[1].Error == nil || resp[1].Error.Error() != zetcd.ErrNodeExists.Error() {
+		t.Fatalf("expected createop error to be %v, got %v", zetcd.ErrNodeExists.Error(), resp[1].Error)
 	}
 }
 

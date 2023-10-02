@@ -245,7 +245,13 @@ func (xchk *zkXchk) GetChildren2(xid zetcd.Xid, op *zetcd.GetChildren2Request) z
 	return or
 }
 
-func (xchk *zkXchk) Multi(xid zetcd.Xid, op *zetcd.MultiRequest) zetcd.ZKResponse { panic("wut") }
+func (xchk *zkXchk) Multi(xid zetcd.Xid, op *zetcd.MultiRequest) zetcd.ZKResponse {
+	cf := func() zetcd.ZKResponse { return xchk.cZK.Multi(xid, op) }
+	of := func() zetcd.ZKResponse { return xchk.oZK.Multi(xid, op) }
+	cr, or, err := xchk.xchkResp(cf, of)
+	defer func() { xchk.reportErr(cr, or, err) }()
+	return or
+}
 
 func (xchk *zkXchk) Close(xid zetcd.Xid, op *zetcd.CloseRequest) zetcd.ZKResponse {
 	cf := func() zetcd.ZKResponse { return xchk.cZK.Close(xid, op) }
