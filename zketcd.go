@@ -470,16 +470,31 @@ func (z *zkEtcd) Sync(xid Xid, op *SyncRequest) ZKResponse {
 
 func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 	bs := make([]opBundle, len(mreq.Ops))
+	mresp := &MultiResponse{
+		Ops:        make([]MultiResponseOp, len(mreq.Ops)),
+		DoneHeader: MultiHeader{Type: opMulti},
+	}
+	if len(mreq.Ops) == 0 {
+		zxid, zerr := z.incrementAndGetZxid()
+		if zerr != nil {
+			return mkErr(zerr)
+		}
+		return mkZKResp(xid, zxid, mresp)
+	}
 	for i, op := range mreq.Ops {
 		switch req := op.Op.(type) {
 		case *CreateRequest:
 			bs[i] = z.mkCreateTxnOp(req)
+			mresp.Ops[i].Header.Type = opCreate
 		case *DeleteRequest:
 			bs[i] = z.mkDeleteTxnOp(req)
+			mresp.Ops[i].Header.Type = opDelete
 		case *SetDataRequest:
 			bs[i] = z.mkSetDataTxnOp(req)
+			mresp.Ops[i].Header.Type = opSetData
 		case *CheckVersionRequest:
 			bs[i] = z.mkCheckVersionPathTxnOp(req)
+			mresp.Ops[i].Header.Type = opCheck
 		default:
 			panic(fmt.Sprintf("unknown multi %+v %T", op.Op, op.Op))
 		}
@@ -491,8 +506,13 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 	}
 
 	apply := func(s v3sync.STM) error {
-		for _, b := range bs {
+		for i, b := range bs {
 			if err := b.apply(s); err != nil {
+				var ok bool
+				mresp.Ops[i].Header.Type = opError
+				if mresp.Ops[i].Header.Err, ok = errorToErrCode[err]; !ok {
+					mresp.Ops[i].Header.Err = errAPIError
+				}
 				return err
 			}
 		}
@@ -500,52 +520,29 @@ func (z *zkEtcd) Multi(xid Xid, mreq *MultiRequest) ZKResponse {
 	}
 
 	reply := func(xid Xid, zxid ZXid) ZKResponse {
-		ops := make([]MultiResponseOp, len(bs))
 		for i, b := range bs {
 			resp := b.reply(xid, zxid)
-			ops[i].Header = MultiHeader{Err: 0}
 			switch r := resp.Resp.(type) {
 			case *CreateResponse:
-				ops[i].Header.Type = opCreate
-				ops[i].String = r.Path
+				mresp.Ops[i].String = r.Path
 			case *SetDataResponse:
-				ops[i].Header.Type = opSetData
-				ops[i].Stat = &r.Stat
-			case *DeleteResponse:
-				ops[i].Header.Type = opDelete
-			case *struct{}:
-				ops[i].Header.Type = opCheck
-			default:
-				panic(fmt.Sprintf("unknown multi %+v %T", resp, resp))
+				mresp.Ops[i].Stat = &r.Stat
 			}
-		}
-		mresp := &MultiResponse{
-			Ops:        ops,
-			DoneHeader: MultiHeader{Type: opMulti},
 		}
 		return mkZKResp(xid, zxid, mresp)
 	}
 
-	resp, err := z.doSTM(apply, prefetch...)
+	resp, _ := z.doSTM(apply, prefetch...)
 	if resp == nil {
-		// txn aborted, possibly due to any API error
-		if _, ok := errorToErrCode[err]; !ok {
-			// aborted due to non-API error
-			return mkErr(err)
-		}
 		zxid, zerr := z.incrementAndGetZxid()
 		if zerr != nil {
 			return mkErr(zerr)
 		}
-		// zkdocker seems to always return API error...
-		zkresp := apiErrToZKErr(xid, zxid, err)
-		zkresp.Hdr.Err = errAPIError
-		return zkresp
+		return reply(xid, zxid)
 	}
 
-	mresp := reply(xid, ZXid(resp.Header.Revision))
-	glog.V(7).Infof("Multi(%v) = (zxid=%v); txnresp: %+v", *mreq, resp.Header.Revision, *resp)
-	return mresp
+	glog.V(7).Infof("Multi(%v) = (zxid=%v); txnresp: %+v\n", *mreq, resp.Header.Revision, *resp)
+	return reply(xid, ZXid(resp.Header.Revision))
 }
 
 func (z *zkEtcd) mkCheckVersionPathTxnOp(op *CheckVersionRequest) opBundle {
